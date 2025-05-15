@@ -1,116 +1,98 @@
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from config import ADMIN_IDS, WEB_APP_URL
+from config import ADMIN_IDS
 from services.user_manager import UserManager
 import logging
-import json
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-class AdminStates(StatesGroup):
-    ban_user = State()
-    broadcast = State()
-    manage_coins = State()
-    edit_user = State()
-
-def get_admin_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Open Admin Panel", web_app=WebAppInfo(url=WEB_APP_URL + "/admin"))]
-        ],
-        resize_keyboard=True
-    )
-
-@router.message(F.command == "admin")
+@router.message(commands=["admin"])
 async def admin_panel(message: Message, state: FSMContext):
-    """Handle /admin command."""
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("Access denied.")
-        logger.warning(f"Unauthorized admin access attempt by {message.from_user.id}")
-        return
-    await state.clear()
-    await message.answer("Welcome to the admin panel. Open the panel to manage users.", reply_markup=get_admin_menu())
-    logger.info(f"Admin {message.from_user.id} accessed admin panel")
-
-@router.message(F.web_app_data & F.web_app_data.data.contains("admin_"))
-async def admin_web_app_data(message: Message, state: FSMContext):
-    """Handle admin Web App data."""
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("Access denied.")
-        logger.warning(f"Unauthorized admin Web App access by {message.from_user.id}")
-        return
+    """Open admin panel for authorized users."""
     try:
-        data = json.loads(message.web_app_data.data)
-        action = data.get("action")
-        if not action:
-            await message.answer("Invalid admin action.")
-            logger.error(f"Invalid admin action for {message.from_user.id}")
+        if message.from_user.id not in ADMIN_IDS:
+            await message.answer("Access denied.")
+            logger.warning(f"Unauthorized admin access attempt by {message.from_user.id}")
             return
-
-        user_manager = UserManager(message.bot, state)
-
-        if action == "admin_stats":
-            stats = await user_manager.get_stats()
-            await message.answer(
-                f"Stats:\nUsers: {stats['total_users']}\nMatches: {stats['total_matches']}\nActive Chats: {stats['active_chats']}"
-            )
-            logger.info(f"Admin {message.from_user.id} viewed stats")
-
-        elif action == "admin_ban":
-            user_id = data.get("user_id")
-            if not user_id:
-                await message.answer("Invalid user ID.")
-                logger.error(f"Invalid user ID for ban by {message.from_user.id}")
-                return
-            await user_manager.ban_user(int(user_id))
-            await message.answer(f"User {user_id} banned.")
-            logger.info(f"Admin {message.from_user.id} banned user {user_id}")
-
-        elif action == "admin_broadcast":
-            text = data.get("text")
-            if not text:
-                await message.answer("Broadcast text is required.")
-                logger.error(f"Empty broadcast text by {message.from_user.id}")
-                return
-            await user_manager.broadcast(text)
-            await message.answer("Broadcast sent.")
-            logger.info(f"Admin {message.from_user.id} sent broadcast")
-
-        elif action == "admin_coins":
-            user_id = data.get("user_id")
-            amount = data.get("amount")
-            if not (user_id and amount is not None):
-                await message.answer("Invalid user ID or amount.")
-                logger.error(f"Invalid coins data by {message.from_user.id}")
-                return
-            await user_manager.update_user(user_id=int(user_id), coins=int(amount))
-            await message.answer(f"Updated coins for user {user_id}.")
-            logger.info(f"Admin {message.from_user.id} updated coins for {user_id}")
-
-        elif action == "admin_edit_user":
-            user_id = data.get("user_id")
-            nickname = data.get("nickname")
-            coins = data.get("coins")
-            if not user_id:
-                await message.answer("Invalid user ID.")
-                logger.error(f"Invalid user ID for edit by {message.from_user.id}")
-                return
-            await user_manager.update_user(
-                user_id=int(user_id),
-                nickname=nickname,
-                coins=int(coins) if coins is not None else None
-            )
-            await message.answer(f"User {user_id} updated.")
-            logger.info(f"Admin {message.from_user.id} edited user {user_id}")
-
-    except json.JSONDecodeError:
-        await message.answer("Invalid Web App data format.")
-        logger.error(f"Invalid JSON in admin Web App data for {message.from_user.id}")
+        await message.answer(
+            "Admin Panel:\n"
+            "- /stats: View statistics\n"
+            "- /ban <user_id>: Ban a user\n"
+            "- /broadcast <message>: Send a broadcast"
+        )
+        logger.info(f"Admin panel accessed by {message.from_user.id}")
     except Exception as e:
-        await message.answer("An error occurred. Please try again.")
-        logger.error(f"Admin web app data processing failed for {message.from_user.id}: {e}")
+        logger.error(f"Error in admin_panel for user {message.from_user.id}: {e}")
+        await message.answer("Failed to open admin panel.")
+
+@router.message(commands=["stats"])
+async def stats(message: Message, state: FSMContext):
+    """Show admin statistics."""
+    try:
+        if message.from_user.id not in ADMIN_IDS:
+            await message.answer("Access denied.")
+            logger.warning(f"Unauthorized stats access attempt by {message.from_user.id}")
+            return
+        user_manager = UserManager(message.bot, state)
+        stats = await user_manager.get_stats()
+        await message.answer(
+            f"Statistics:\n"
+            f"Total Users: {stats['total_users']}\n"
+            f"Total Matches: {stats['total_matches']}\n"
+            f"Active Chats: {stats['active_chats']}"
+        )
+        logger.info(f"Stats viewed by admin {message.from_user.id}")
+    except Exception as e:
+        logger.error(f"Error in stats for user {message.from_user.id}: {e}")
+        await message.answer("Failed to fetch statistics.")
+
+@router.message(commands=["ban"])
+async def ban_user(message: Message, state: FSMContext):
+    """Ban a user by ID."""
+    try:
+        if message.from_user.id not in ADMIN_IDS:
+            await message.answer("Access denied.")
+            logger.warning(f"Unauthorized ban attempt by {message.from_user.id}")
+            return
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].isdigit():
+            await message.answer("Usage: /ban <user_id>")
+            logger.warning(f"Invalid ban command by {message.from_user.id}: {message.text}")
+            return
+        user_id = int(parts[1])
+        user_manager = UserManager(message.bot, state)
+        await user_manager.ban_user(user_id)
+        await message.answer(f"User {user_id} banned.")
+        logger.info(f"User {user_id} banned by admin {message.from_user.id}")
+    except Exception as e:
+        logger.error(f"Error in ban_user for user {message.from_user.id}: {e}")
+        await message.answer("Failed to ban user.")
+
+@router.message(commands=["broadcast"])
+async def broadcast(message: Message, state: FSMContext):
+    """Send a broadcast message to all users."""
+    try:
+        if message.from_user.id not in ADMIN_IDS:
+            await message.answer("Access denied.")
+            logger.warning(f"Unauthorized broadcast attempt by {message.from_user.id}")
+            return
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2:
+            await message.answer("Usage: /broadcast <message>")
+            logger.warning(f"Invalid broadcast command by {message.from_user.id}: {message.text}")
+            return
+        text = parts[1]
+        user_manager = UserManager(message.bot, state)
+        await user_manager.broadcast(text)
+        await message.answer("Broadcast sent.")
+        logger.info(f"Broadcast sent by admin {message.from_user.id}")
+    except Exception as e:
+        logger.error(f"Error in broadcast for user {message.from_user.id}: {e}")
+        await message.answer("Failed to send broadcast.")
