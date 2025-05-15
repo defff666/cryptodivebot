@@ -11,13 +11,11 @@ from services.quiz import QuizService
 import logging
 import json
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-# States for registration
 class Registration(StatesGroup):
     nickname = State()
     age = State()
@@ -27,7 +25,6 @@ class Registration(StatesGroup):
     interests = State()
     photo = State()
 
-# Main menu
 def get_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -48,7 +45,6 @@ async def start(message: Message, state: FSMContext):
         await message.answer("Welcome to CryptoDiveBot! Open the app to register.", reply_markup=get_main_menu())
     logger.info(f"User {message.from_user.id} started bot")
 
-# Handle Web App data
 @router.message(F.web_app_data)
 async def web_app_data(message: Message, state: FSMContext):
     """Handle data from Web App."""
@@ -78,7 +74,7 @@ async def web_app_data(message: Message, state: FSMContext):
                     city=user_data["city"],
                     gender=user_data["gender"],
                     interests=user_data["interests"],
-                    photo=user_data.get("photo")
+                    photo=user_data.get("photo")  # Base64 or null
                 )
                 await message.answer("Registration complete! Open the app to continue.", reply_markup=get_main_menu())
                 logger.info(f"User {message.from_user.id} registered successfully")
@@ -96,7 +92,7 @@ async def web_app_data(message: Message, state: FSMContext):
                 city=user_data.get("city"),
                 gender=user_data.get("gender"),
                 interests=user_data.get("interests"),
-                photo=user_data.get("photo")
+                photo=user_data.get("photo")  # Base64 or null
             )
             await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
             logger.info(f"User {message.from_user.id} updated profile")
@@ -112,6 +108,9 @@ async def web_app_data(message: Message, state: FSMContext):
             if match:
                 await message.answer("It's a match! You can now chat with this user.", reply_markup=get_main_menu())
                 logger.info(f"Match between {message.from_user.id} and {target_id}")
+            else:
+                await message.answer("Liked! Waiting for a match.", reply_markup=get_main_menu())
+                logger.info(f"User {message.from_user.id} liked {target_id}")
 
         elif action == "chat":
             target_id = data.get("target_id")
