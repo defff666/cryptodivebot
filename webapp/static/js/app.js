@@ -1,7 +1,8 @@
+// Инициализация Web App
 const app = document.getElementById('app');
 let currentUser = null;
 
-// Countries and cities (simplified)
+// Данные
 const countries = ['USA', 'UK', 'Canada', 'Australia'];
 const cities = {
     'USA': ['New York', 'Los Angeles', 'Chicago'],
@@ -13,18 +14,27 @@ const interestsList = ['Music', 'Sports', 'Travel', 'Gaming', 'Food'];
 const genders = ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'];
 
 function initWebApp() {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-    currentUser = Telegram.WebApp.initDataUnsafe.user;
-    if (!currentUser) {
-        renderLogin();
-    } else {
-        checkUserStatus();
+    try {
+        if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
+            console.error('Telegram WebApp not available');
+            app.innerHTML = '<div class="card"><p>Error: Telegram WebApp not loaded</p></div>';
+            return;
+        }
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        currentUser = Telegram.WebApp.initDataUnsafe.user;
+        if (!currentUser) {
+            renderLogin();
+        } else {
+            checkUserStatus();
+        }
+    } catch (error) {
+        console.error('Error initializing Web App:', error);
+        app.innerHTML = '<div class="card"><p>Error: ' + error.message + '</p></div>';
     }
 }
 
 async function checkUserStatus() {
-    // Simulate checking user registration (handled by backend)
     renderMainMenu();
 }
 
@@ -32,22 +42,29 @@ function renderLogin() {
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-2xl font-bold mb-4">Welcome to CryptoDiveBot</h2>
-            <button class="button" onclick="startRegistration()">Start Registration</button>
+            <button id="startRegistration" class="button">Start Registration</button>
         </div>
     `;
+    document.getElementById('startRegistration').addEventListener('click', startRegistration);
 }
 
 function renderMainMenu() {
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-2xl font-bold mb-4">Main Menu</h2>
-            <button class="button mb-2" onclick="viewProfile()">View Profile</button>
-            <button class="button mb-2" onclick="findUsers()">Find Users</button>
-            <button class="button mb-2" onclick="playQuiz()">Play Quiz</button>
-            ${currentUser && currentUser.id in Telegram.WebApp.initDataUnsafe.admin_ids ? 
-                '<button class="button" onclick="adminPanel()">Admin Panel</button>' : ''}
+            <button id="viewProfile" class="button mb-2">View Profile</button>
+            <button id="findUsers" class="button mb-2">Find Users</button>
+            <button id="playQuiz" class="button mb-2">Play Quiz</button>
+            ${currentUser && currentUser.id in (Telegram.WebApp.initDataUnsafe.admin_ids || []) ? 
+                '<button id="adminPanel" class="button">Admin Panel</button>' : ''}
         </div>
     `;
+    document.getElementById('viewProfile').addEventListener('click', viewProfile);
+    document.getElementById('findUsers').addEventListener('click', findUsers);
+    document.getElementById('playQuiz').addEventListener('click', playQuiz);
+    if (document.getElementById('adminPanel')) {
+        document.getElementById('adminPanel').addEventListener('click', adminPanel);
+    }
 }
 
 let registrationStep = 0;
@@ -109,7 +126,7 @@ function renderRegistrationStep() {
             title: 'Photo',
             input: `
                 <input id="photo" type="file" accept="image/*" class="w-full p-2 mb-4 bg-gray-700 rounded">
-                <button class="button" onclick="skipPhoto()">Skip</button>
+                <button id="skipPhoto" class="button">Skip</button>
             `
         }
     ];
@@ -126,9 +143,14 @@ function renderRegistrationStep() {
                 <div class="bg-blue-600 h-2 rounded" style="width: ${(registrationStep + 1) / steps.length * 100}%"></div>
             </div>
             ${steps[registrationStep].input}
-            <button class="button" onclick="nextRegistrationStep()">Next</button>
+            <button id="nextStep" class="button">Next</button>
         </div>
     `;
+
+    document.getElementById('nextStep').addEventListener('click', nextRegistrationStep);
+    if (document.getElementById('skipPhoto')) {
+        document.getElementById('skipPhoto').addEventListener('click', skipPhoto);
+    }
 
     if (steps[registrationStep].title === 'City') {
         const country = registrationData.country;
@@ -184,7 +206,6 @@ function submitRegistration() {
 }
 
 function viewProfile() {
-    // Simulate fetching profile (handled by backend)
     const profile = {
         nickname: registrationData.nickname || 'User',
         age: registrationData.age || 18,
@@ -205,10 +226,12 @@ function viewProfile() {
             <p><strong>Gender:</strong> ${profile.gender}</p>
             <p><strong>Interests:</strong> ${profile.interests}</p>
             <p><strong>Coins:</strong> ${profile.coins}</p>
-            <button class="button mt-4" onclick="editProfile()">Edit Profile</button>
-            <button class="button mt-2" onclick="renderMainMenu()">Back</button>
+            <button id="editProfile" class="button mt-4">Edit Profile</button>
+            <button id="back" class="button mt-2">Back</button>
         </div>
     `;
+    document.getElementById('editProfile').addEventListener('click', editProfile);
+    document.getElementById('back').addEventListener('click', renderMainMenu);
 }
 
 function editProfile() {
@@ -217,7 +240,6 @@ function editProfile() {
 }
 
 async function findUsers() {
-    // Simulate fetching users (handled by backend)
     const users = [
         { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: 'static/images/avatar.png' },
         { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: 'static/images/avatar.png' }
@@ -229,9 +251,10 @@ async function findUsers() {
             app.innerHTML = `
                 <div class="card fade-in">
                     <h2 class="text-2xl font-bold mb-4">No more users</h2>
-                    <button class="button" onclick="renderMainMenu()">Back</button>
+                    <button id="back" class="button">Back</button>
                 </div>
             `;
+            document.getElementById('back').addEventListener('click', renderMainMenu);
             return;
         }
         const user = users[currentIndex];
@@ -242,11 +265,13 @@ async function findUsers() {
                 <p>${user.city}</p>
                 <p>${user.interests}</p>
                 <div class="flex justify-between mt-4">
-                    <button class="like-button" onclick="likeUser(${user.id})">❤️</button>
-                    <button class="next-button" onclick="nextUser()">❌</button>
+                    <button id="likeButton" class="like-button">❤️</button>
+                    <button id="nextButton" class="next-button">❌</button>
                 </div>
             </div>
         `;
+        document.getElementById('likeButton').addEventListener('click', () => likeUser(user.id));
+        document.getElementById('nextButton').addEventListener('click', nextUser);
     }
 
     window.likeUser = function(userId) {
@@ -256,8 +281,7 @@ async function findUsers() {
         }));
         currentIndex++;
         renderUser();
-        // Simulate confetti
-        alert("It's a Match!"); // Replace with confetti library
+        alert("It's a Match!");
     };
 
     window.nextUser = function() {
@@ -269,7 +293,6 @@ async function findUsers() {
 }
 
 function playQuiz() {
-    // Simulate quiz (handled by backend)
     const question = {
         id: '1',
         text: 'What is the capital of France?',
@@ -281,11 +304,15 @@ function playQuiz() {
             <h2 class="text-2xl font-bold mb-4">Quiz</h2>
             <p class="mb-4">${question.text}</p>
             ${question.options.map(opt => `
-                <button class="button mb-2 w-full" onclick="submitQuizAnswer('${question.id}', '${opt}')">${opt}</button>
+                <button class="button mb-2 w-full quiz-option">${opt}</button>
             `).join('')}
-            <button class="button mt-2" onclick="renderMainMenu()">Back</button>
+            <button id="back" class="button mt-2">Back</button>
         </div>
     `;
+    document.querySelectorAll('.quiz-option').forEach(button => {
+        button.addEventListener('click', () => submitQuizAnswer(question.id, button.textContent));
+    });
+    document.getElementById('back').addEventListener('click', renderMainMenu);
 }
 
 function submitQuizAnswer(questionId, answer) {
@@ -301,12 +328,16 @@ function adminPanel() {
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-2xl font-bold mb-4">Admin Panel</h2>
-            <button class="button mb-2" onclick="viewStats()">View Stats</button>
-            <button class="button mb-2" onclick="banUser()">Ban User</button>
-            <button class="button mb-2" onclick="sendBroadcast()">Send Broadcast</button>
-            <button class="button" onclick="renderMainMenu()">Back</button>
+            <button id="viewStats" class="button mb-2">View Stats</button>
+            <button id="banUser" class="button mb-2">Ban User</button>
+            <button id="sendBroadcast" class="button mb-2">Send Broadcast</button>
+            <button id="back" class="button">Back</button>
         </div>
     `;
+    document.getElementById('viewStats').addEventListener('click', viewStats);
+    document.getElementById('banUser').addEventListener('click', banUser);
+    document.getElementById('sendBroadcast').addEventListener('click', sendBroadcast);
+    document.getElementById('back').addEventListener('click', renderMainMenu);
 }
 
 function viewStats() {
