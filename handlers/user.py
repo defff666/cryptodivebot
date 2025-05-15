@@ -45,6 +45,17 @@ async def start(message: Message, state: FSMContext):
         await message.answer("Welcome to CryptoDiveBot! Open the app to register.", reply_markup=get_main_menu())
     logger.info(f"User {message.from_user.id} started bot")
 
+@router.message(F.command == "get_profile")
+async def get_profile(message: Message, state: FSMContext):
+    """Debug command to get user profile."""
+    user_manager = UserManager(message.bot, state)
+    user = await user_manager.get_user(message.from_user.id)
+    if user:
+        await message.answer(f"Profile:\n{json.dumps(user, indent=2)}")
+    else:
+        await message.answer("No profile found.")
+    logger.info(f"User {message.from_user.id} requested profile: {user}")
+
 @router.message(F.web_app_data)
 async def web_app_data(message: Message, state: FSMContext):
     """Handle data from Web App."""
@@ -74,33 +85,42 @@ async def web_app_data(message: Message, state: FSMContext):
                     city=user_data["city"],
                     gender=user_data["gender"],
                     interests=user_data["interests"],
-                    photo=user_data.get("photo")  # Base64 or null
+                    photo=user_data.get("photo")
                 )
                 await message.answer("Registration complete! Open the app to continue.", reply_markup=get_main_menu())
                 logger.info(f"User {message.from_user.id} registered successfully: {user_data}")
             except ValueError as e:
                 await message.answer(f"Invalid data: {e}")
                 logger.error(f"Registration failed for user {message.from_user.id}: {e}")
+            except Exception as e:
+                await message.answer("Registration failed. Please try again.")
+                logger.error(f"Unexpected registration error for user {message.from_user.id}: {e}")
 
         elif action == "edit_profile":
             user_data = data.get("data", {})
-            required_fields = ["nickname", "age", "country", "city", "gender", "interests"]
-            if not any(key in user_data for key in required_fields):
+            if not any(user_data.get(key) for key in ["nickname", "age", "country", "city", "gender", "interests", "photo"]):
                 await message.answer("No profile data provided.")
                 logger.error(f"No profile data for edit by user {message.from_user.id}: {user_data}")
                 return
-            await user_manager.update_user(
-                user_id=message.from_user.id,
-                nickname=user_data.get("nickname"),
-                age=int(user_data["age"]) if user_data.get("age") else None,
-                country=user_data.get("country"),
-                city=user_data.get("city"),
-                gender=user_data.get("gender"),
-                interests=user_data.get("interests"),
-                photo=user_data.get("photo")  # Base64 or null
-            )
-            await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
-            logger.info(f"User {message.from_user.id} updated profile: {user_data}")
+            try:
+                await user_manager.update_user(
+                    user_id=message.from_user.id,
+                    nickname=user_data.get("nickname"),
+                    age=int(user_data["age"]) if user_data.get("age") else None,
+                    country=user_data.get("country"),
+                    city=user_data.get("city"),
+                    gender=user_data.get("gender"),
+                    interests=user_data.get("interests"),
+                    photo=user_data.get("photo")
+                )
+                await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
+                logger.info(f"User {message.from_user.id} updated profile: {user_data}")
+            except ValueError as e:
+                await message.answer(f"Invalid data: {e}")
+                logger.error(f"Profile update failed for user {message.from_user.id}: {e}")
+            except Exception as e:
+                await message.answer("Profile update failed. Please try again.")
+                logger.error(f"Unexpected profile update error for user {message.from_user.id}: {e}")
 
         elif action == "like":
             target_id = data.get("target_id")
