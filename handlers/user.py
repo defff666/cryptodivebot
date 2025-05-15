@@ -10,7 +10,10 @@ from services.quiz import QuizService
 import logging
 import json
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 router = Router()
@@ -32,51 +35,75 @@ def get_main_menu():
         resize_keyboard=True
     )
 
-@router.message(F.command == "start")
+@router.message(commands=["start"])
 async def start(message: Message, state: FSMContext):
     """Handle /start command."""
-    await state.clear()
-    user_manager = UserManager(message.bot, state)
-    user = await user_manager.get_user(message.from_user.id)
-    if user:
-        await message.answer("Welcome back! Open the app to continue.", reply_markup=get_main_menu())
-    else:
-        await message.answer("Welcome to CryptoDiveBot! Open the app to register.", reply_markup=get_main_menu())
-    logger.info(f"User {message.from_user.id} started bot")
+    try:
+        await state.clear()
+        user_manager = UserManager(message.bot, state)
+        user = await user_manager.get_user(message.from_user.id)
+        if user:
+            await message.answer(
+                "Welcome back! Open the app to continue.",
+                reply_markup=get_main_menu()
+            )
+        else:
+            await message.answer(
+                "Welcome to CryptoDiveBot! Open the app to register.",
+                reply_markup=get_main_menu()
+            )
+        logger.info(f"User {message.from_user.id} started bot")
+    except Exception as e:
+        logger.error(f"Error in start command for user {message.from_user.id}: {e}")
+        await message.answer("An error occurred. Please try again.")
 
-@router.message(F.command == "get_profile")
+@router.message(commands=["get_profile"])
 async def get_profile(message: Message, state: FSMContext):
     """Debug command to get user profile."""
-    user_manager = UserManager(message.bot, state)
-    user = await user_manager.get_user(message.from_user.id)
-    if user:
-        await message.answer(f"Profile:\n{json.dumps(user.__dict__, indent=2, ensure_ascii=False)}")
-    else:
-        await message.answer("No profile found.")
-    logger.info(f"User {message.from_user.id} requested profile: {user}")
+    try:
+        user_manager = UserManager(message.bot, state)
+        user = await user_manager.get_user(message.from_user.id)
+        if user:
+            await message.answer(
+                f"Profile:\n{json.dumps(user.__dict__, indent=2, ensure_ascii=False)}"
+            )
+        else:
+            await message.answer("No profile found.")
+        logger.info(f"User {message.from_user.id} requested profile")
+    except Exception as e:
+        logger.error(f"Error in get_profile for user {message.from_user.id}: {e}")
+        await message.answer("Failed to fetch profile.")
 
-@router.message(F.command == "reset_profile")
+@router.message(commands=["reset_profile"])
 async def reset_profile(message: Message, state: FSMContext):
     """Debug command to reset user profile."""
-    user_manager = UserManager(message.bot, state)
     try:
         pool = state.data.get("db_pool")
         if not pool:
             raise ValueError("Database pool not initialized")
         async with pool.acquire() as conn:
             await conn.execute("DELETE FROM users WHERE id = $1", message.from_user.id)
-        await message.answer("Profile reset. Please register again.", reply_markup=get_main_menu())
+        await message.answer(
+            "Profile reset. Please register again.",
+            reply_markup=get_main_menu()
+        )
         logger.info(f"User {message.from_user.id} reset their profile")
     except Exception as e:
-        await message.answer("Failed to reset profile.")
         logger.error(f"Error resetting profile for user {message.from_user.id}: {e}")
+        await message.answer("Failed to reset profile.")
 
-@router.message(F.command == "dump_state")
+@router.message(commands=["dump_state"])
 async def dump_state(message: Message, state: FSMContext):
     """Debug command to dump FSM state."""
-    state_data = await state.get_data()
-    await message.answer(f"FSM State:\n{json.dumps(state_data, indent=2, ensure_ascii=False)}")
-    logger.info(f"User {message.from_user.id} dumped state: {state_data}")
+    try:
+        state_data = await state.get_data()
+        await message.answer(
+            f"FSM State:\n{json.dumps(state_data, indent=2, ensure_ascii=False)}"
+        )
+        logger.info(f"User {message.from_user.id} dumped state")
+    except Exception as e:
+        logger.error(f"Error dumping state for user {message.from_user.id}: {e}")
+        await message.answer("Failed to dump state.")
 
 @router.message(F.web_app_data)
 async def web_app_data(message: Message, state: FSMContext):
@@ -109,7 +136,10 @@ async def web_app_data(message: Message, state: FSMContext):
                     interests=user_data["interests"],
                     photo=user_data.get("photo")
                 )
-                await message.answer("Registration complete! Open the app to continue.", reply_markup=get_main_menu())
+                await message.answer(
+                    "Registration complete! Open the app to continue.",
+                    reply_markup=get_main_menu()
+                )
                 logger.info(f"User {message.from_user.id} registered successfully: {user_data}")
             except ValueError as e:
                 await message.answer(f"Invalid data: {e}")
@@ -121,14 +151,12 @@ async def web_app_data(message: Message, state: FSMContext):
         elif action == "edit_profile":
             user_data = data.get("data", {})
             try:
-                # Fetch current profile to fill missing fields
                 current_user = await user_manager.get_user(message.from_user.id)
                 if not current_user:
                     await message.answer("No profile found. Please register first.")
                     logger.error(f"No profile for edit by user {message.from_user.id}")
                     return
                 
-                # Ensure all required fields
                 user_data.setdefault("nickname", current_user.nickname)
                 user_data.setdefault("age", current_user.age)
                 user_data.setdefault("country", current_user.country)
@@ -146,7 +174,10 @@ async def web_app_data(message: Message, state: FSMContext):
                     interests=user_data["interests"],
                     photo=user_data.get("photo")
                 )
-                await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
+                await message.answer(
+                    "Profile updated! Open the app to view.",
+                    reply_markup=get_main_menu()
+                )
                 logger.info(f"User {message.from_user.id} updated profile: {user_data}")
             except ValueError as e:
                 await message.answer(f"Invalid data: {e}")
@@ -162,12 +193,19 @@ async def web_app_data(message: Message, state: FSMContext):
                 logger.error(f"Invalid target ID for like by user {message.from_user.id}")
                 return
             matching_service = MatchingService(message.bot)
-            match = await matching_service.like_user(message.from_user.id, int(target_id))
+            pool = state.data.get("db_pool")
+            match = await matching_service.like_user(message.from_user.id, int(target_id), pool)
             if match:
-                await message.answer("It's a match! You can now chat with this user.", reply_markup=get_main_menu())
+                await message.answer(
+                    "It's a match! You can now chat with this user.",
+                    reply_markup=get_main_menu()
+                )
                 logger.info(f"Match between {message.from_user.id} and {target_id}")
             else:
-                await message.answer("Liked! Waiting for a match.", reply_markup=get_main_menu())
+                await message.answer(
+                    "Liked! Waiting for a match.",
+                    reply_markup=get_main_menu()
+                )
                 logger.info(f"User {message.from_user.id} liked {target_id}")
 
         elif action == "chat":
@@ -179,6 +217,7 @@ async def web_app_data(message: Message, state: FSMContext):
                 return
             chat_service = ChatService(message.bot)
             await chat_service.send_message(message.from_user.id, int(target_id), text)
+            await message.answer("Message sent!", reply_markup=get_main_menu())
             logger.info(f"Message sent from {message.from_user.id} to {target_id}")
 
         elif action == "quiz_answer":
@@ -198,7 +237,7 @@ async def web_app_data(message: Message, state: FSMContext):
 
     except json.JSONDecodeError:
         await message.answer("Invalid Web App data format.")
-        logger.error(f"Invalid JSON in Web App data for user {message.from_user.id}: {data}")
+        logger.error(f"Invalid JSON in Web App data for user {message.from_user.id}")
     except Exception as e:
         await message.answer("An error occurred. Please try again.")
         logger.error(f"Web app data processing failed for user {message.from_user.id}: {e}")
