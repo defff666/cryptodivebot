@@ -12,8 +12,10 @@ const cities = {
 };
 const interestsList = ['Music', 'Sports', 'Travel', 'Gaming', 'Food'];
 const genders = ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'];
+const ADMIN_IDS = [/* Замени на свой Telegram ID, например: 123456789 */];
 
 function showToast(message, type = 'info') {
+    console.log(`Toast: ${message} (${type})`);
     const toast = document.createElement('div');
     toast.className = `toast ${type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-blue-600'}`;
     toast.textContent = message;
@@ -37,7 +39,8 @@ function initWebApp() {
         }
     } catch (error) {
         console.error('Init error:', error);
-        app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p></div>';
+        app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p><button id="retry" class="button mt-4">Retry</button></div>';
+        document.getElementById('retry')?.addEventListener('click', initWebApp);
         showToast('Failed to initialize app', 'error');
     }
 }
@@ -122,9 +125,9 @@ function renderMainMenu() {
             ${isAdmin ? '<button id="adminPanel" class="button w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">🛠 Admin Panel</button>' : ''}
         </div>
     `;
-    document.getElementById('viewProfile').addEventListener('click', viewProfile);
-    document.getElementById('findUsers').addEventListener('click', findUsers);
-    document.getElementById('playQuiz').addEventListener('click', playQuiz);
+    document.getElementById('viewProfile')?.addEventListener('click', viewProfile);
+    document.getElementById('findUsers')?.addEventListener('click', findUsers);
+    document.getElementById('playQuiz')?.addEventListener('click', playQuiz);
     if (document.getElementById('adminPanel')) {
         document.getElementById('adminPanel').addEventListener('click', adminPanel);
     }
@@ -366,15 +369,6 @@ function viewProfile() {
                     <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
                 </div>
             </div>
-            <script>
-                let coins = ${profile.coins};
-                setInterval(() => {
-                    coins += 1;
-                    document.getElementById('coinCount').textContent = \`💰 \${coins}\`;
-                    document.getElementById('coinCount').classList.add('animate-bounce');
-                    setTimeout(() => document.getElementById('coinCount').classList.remove('animate-bounce'), 500);
-                }, 10000);
-            </script>
         `;
         const editButton = document.getElementById('editProfile');
         if (editButton) {
@@ -460,7 +454,6 @@ async function findUsers() {
             currentIndex++;
             confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
             showToast('Liked!', 'success');
-            document.getElementById('likeSound')?.play();
             renderUser();
         };
 
@@ -502,7 +495,6 @@ function playQuiz() {
             submitQuizAnswer(question.id, answer);
             button.classList.add(answer === question.correct ? 'bg-green-600' : 'bg-red-600');
             showToast(answer === question.correct ? 'Correct!' : 'Wrong!', answer === question.correct ? 'success' : 'error');
-            document.getElementById('quizSound')?.play();
             setTimeout(renderMainMenu, 1000);
         });
     });
@@ -570,9 +562,59 @@ function manageCoins() {
     } else {
         showToast('Invalid input', 'error');
     }
+    adminPanel();
 }
 
 function viewUsers() {
     const users = [
         { id: 1, nickname: 'Alice', coins: 50, photo: '/static/images/avatar.png' },
-        { id:
+        { id: 2, nickname: 'Bob', coins: 30, photo: '/static/images/avatar.png' }
+    ];
+    app.innerHTML = `
+        <div class="card fade-in">
+            <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Users</h2>
+            <div class="grid gap-3">
+                ${users.map(user => `
+                    <div class="flex items-center p-3 bg-gray-800/50 rounded-lg">
+                        <img src="${user.photo}" alt="${user.nickname}" class="w-10 h-10 rounded-full mr-3">
+                        <div>
+                            <p><strong>${user.nickname}</strong> (ID: ${user.id})</p>
+                            <p>Coins: ${user.coins}</p>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <button id="back" class="button w-full mt-4">Back</button>
+        </div>
+    `;
+    document.getElementById('back').addEventListener('click', adminPanel);
+}
+
+function banUser() {
+    const userId = prompt('Enter user ID to ban:');
+    if (userId) {
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'ban_user', user_id: userId }));
+        }
+        showToast(`User ${userId} banned`, 'success');
+    } else {
+        showToast('Invalid user ID', 'error');
+    }
+    adminPanel();
+}
+
+function sendBroadcast() {
+    const message = prompt('Enter broadcast message:');
+    if (message) {
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'broadcast', message }));
+        }
+        showToast('Broadcast sent', 'success');
+    } else {
+        showToast('Invalid message', 'error');
+    }
+    adminPanel();
+}
+
+// Initialize
+initWebApp();
