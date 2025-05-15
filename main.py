@@ -43,6 +43,33 @@ async def on_shutdown(dp: Dispatcher):
 async def serve_index(request):
     return web.FileResponse('webapp/index.html')
 
+async def init_db_endpoint(request):
+    try:
+        pool = await asyncpg.create_pool(DATABASE_URL)
+        async with pool.acquire() as conn:
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    telegram_id BIGINT PRIMARY KEY,
+                    nickname TEXT NOT NULL,
+                    age INTEGER,
+                    country TEXT,
+                    city TEXT,
+                    gender TEXT,
+                    interests TEXT,
+                    photo TEXT,
+                    coins INTEGER DEFAULT 10,
+                    likes JSONB DEFAULT '[]',
+                    matches JSONB DEFAULT '[]',
+                    blocked BOOLEAN DEFAULT FALSE
+                )
+            ''')
+        await pool.close()
+        logger.info("Database initialized via endpoint")
+        return web.json_response({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        return web.json_response({'status': 'error', 'message': str(e)}, status=500)
+
 async def handle_webapp_data(request):
     try:
         data = await request.json()
@@ -67,12 +94,32 @@ async def handle_webapp_data(request):
         logger.error(f"Error handling WebApp data: {e}")
         return web.json_response({'status': 'error', 'message': str(e)}, status=500)
 
+async def get_profile(request):
+    try:
+        telegram_id = int(request.query.get('telegram_id', 0))
+        pool = request.app['dp'].storage.data.get("db_pool")
+        async with pool.acquire() as conn:
+            user = await conn.fetchrow('''
+                SELECT * FROM users WHERE telegram_id = $1
+            ''', telegram_id)
+            if user:
+                return web.json_response({
+                    'status': 'success',
+                    'profile': dict(user)
+                })
+            return web.json_response({'status': 'error', 'message': 'User not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error fetching profile: {e}")
+        return web.json_response({'status': 'error', 'message': str(e)}, status=500)
+
 app = web.Application()
 app['dp'] = Dispatcher(bot=Bot(token=BOT_TOKEN, parse_mode="HTML"), storage=MemoryStorage())
 app.router.add_static('/static/', path='webapp/static', name='static')
 app.router.add_get('/webapp', serve_index)
 app.router.add_get('/', serve_index)
 app.router.add_post('/webapp/data', handle_webapp_data)
+app.router.add_get('/init-db', init_db_endpoint)
+app.router.add_get('/profile', get_profile)
 
 async def start_web_server():
     runner = web.AppRunner(app)
