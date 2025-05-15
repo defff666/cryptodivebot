@@ -2,7 +2,7 @@ const app = document.getElementById('app');
 let currentUser = null;
 let userProfile = null;
 
-// Данные
+// Mock data
 const countries = ['USA', 'UK', 'Canada', 'Australia'];
 const cities = {
     'USA': ['New York', 'Los Angeles', 'Chicago'],
@@ -48,7 +48,6 @@ async function checkUserStatus() {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
         if (currentUser && Telegram.WebApp) {
             console.log('Requesting profile from Telegram...');
-            // Telegram WebApp не возвращает данные, используем localStorage как заглушку
             if (!userProfile) {
                 userProfile = {
                     nickname: currentUser.username || 'User',
@@ -56,7 +55,7 @@ async function checkUserStatus() {
                     country: 'USA',
                     city: 'New York',
                     gender: 'Male',
-                    interests: 'None',
+                    interests: 'Music',
                     photo: '/static/images/avatar.png',
                     coins: 10,
                     likes: [],
@@ -73,7 +72,7 @@ async function checkUserStatus() {
                 country: 'USA',
                 city: 'New York',
                 gender: 'Male',
-                interests: 'None',
+                interests: 'Music',
                 photo: '/static/images/avatar.png',
                 coins: 10,
                 likes: [],
@@ -113,14 +112,14 @@ function renderLogin() {
 
 function renderMainMenu() {
     console.log('Rendering main menu...');
+    const isAdmin = currentUser && Telegram.WebApp?.initDataUnsafe?.user?.id && ADMIN_IDS.includes(Telegram.WebApp.initDataUnsafe.user.id);
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-3xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Menu</h2>
             <button id="viewProfile" class="button w-full mb-4">👤 Profile</button>
             <button id="findUsers" class="button w-full mb-4">🔍 Find Users</button>
             <button id="playQuiz" class="button w-full mb-4">🎮 Play Quiz</button>
-            ${currentUser && currentUser.id in (Telegram.WebApp?.initDataUnsafe?.admin_ids || []) ? 
-                '<button id="adminPanel" class="button w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">🛠 Admin Panel</button>' : ''}
+            ${isAdmin ? '<button id="adminPanel" class="button w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">🛠 Admin Panel</button>' : ''}
         </div>
     `;
     document.getElementById('viewProfile').addEventListener('click', viewProfile);
@@ -224,6 +223,7 @@ function renderRegistrationStep() {
         console.log('Next step button event listener added');
     } else {
         console.error('Next step button not found');
+        showToast('UI error: Next button missing', 'error');
     }
 
     if (document.getElementById('skipPhoto')) {
@@ -300,13 +300,12 @@ function submitRegistration() {
     console.log('Submitting registration:', registrationData);
     try {
         const action = userProfile ? 'edit_profile' : 'register';
-        // Ensure all required fields
         registrationData.nickname = registrationData.nickname || userProfile?.nickname || 'User';
         registrationData.age = registrationData.age || userProfile?.age || 18;
         registrationData.country = registrationData.country || userProfile?.country || 'USA';
         registrationData.city = registrationData.city || userProfile?.city || 'New York';
         registrationData.gender = registrationData.gender || userProfile?.gender || 'Male';
-        registrationData.interests = registrationData.interests || userProfile?.interests || 'None';
+        registrationData.interests = registrationData.interests || userProfile?.interests || 'Music';
         
         if (Telegram.WebApp) {
             Telegram.WebApp.sendData(JSON.stringify({
@@ -342,7 +341,7 @@ function viewProfile() {
             country: 'USA',
             city: 'New York',
             gender: 'Male',
-            interests: 'None',
+            interests: 'Music',
             photo: '/static/images/avatar.png',
             coins: 10,
             likes: [],
@@ -413,63 +412,68 @@ function editProfile() {
 
 async function findUsers() {
     console.log('Finding users...');
-    const users = [
-        { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
-    ];
-    let currentIndex = 0;
+    try {
+        const users = [
+            { id: 1, nickname: 'Alice', age: 25, city: userProfile?.city || 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
+            { id: 2, nickname: 'Bob', age: 30, city: userProfile?.city || 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
+        ];
+        let currentIndex = 0;
 
-    function renderUser() {
-        if (currentIndex >= users.length) {
+        function renderUser() {
+            if (currentIndex >= users.length) {
+                app.innerHTML = `
+                    <div class="card fade-in">
+                        <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">No More Users</h2>
+                        <p class="text-gray-300 mb-4">Come back later!</p>
+                        <button id="back" class="button w-full">Back</button>
+                    </div>
+                `;
+                document.getElementById('back').addEventListener('click', renderMainMenu);
+                return;
+            }
+            const user = users[currentIndex];
             app.innerHTML = `
-                <div class="card fade-in">
-                    <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">No More Users</h2>
-                    <p class="text-gray-300 mb-4">Come back later!</p>
-                    <button id="back" class="button w-full">Back</button>
-                </div>
-            `;
-            document.getElementById('back').addEventListener('click', renderMainMenu);
-            return;
-        }
-        const user = users[currentIndex];
-        app.innerHTML = `
-            <div class="card slide-in">
-                <img src="${user.photo}" alt="Profile" class="w-full h-72 object-cover rounded-t-2xl">
-                <div class="p-4">
-                    <h2 class="text-2xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">${user.nickname}, ${user.age}</h2>
-                    <p class="text-gray-300">${user.city}</p>
-                    <p class="mb-4">${user.interests}</p>
-                    <div class="flex justify-between">
-                        <button id="likeButton" class="like-button">❤️</button>
-                        <button id="nextButton" class="next-button">❌</button>
+                <div class="card slide-in">
+                    <img src="${user.photo}" alt="Profile" class="w-full h-72 object-cover rounded-t-2xl">
+                    <div class="p-4">
+                        <h2 class="text-2xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">${user.nickname}, ${user.age}</h2>
+                        <p class="text-gray-300">${user.city}</p>
+                        <p class="mb-4">${user.interests}</p>
+                        <div class="flex justify-between">
+                            <button id="likeButton" class="like-button">❤️</button>
+                            <button id="nextButton" class="next-button">❌</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-        document.getElementById('likeButton').addEventListener('click', () => likeUser(user.id));
-        document.getElementById('nextButton').addEventListener('click', nextUser);
-    }
-
-    window.likeUser = function(userId) {
-        if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({
-                action: 'like',
-                target_id: userId
-            }));
+            `;
+            document.getElementById('likeButton').addEventListener('click', () => likeUser(user.id));
+            document.getElementById('nextButton').addEventListener('click', nextUser);
         }
-        currentIndex++;
-        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
-        showToast('Liked!', 'success');
-        document.getElementById('likeSound')?.play();
-        renderUser();
-    };
 
-    window.nextUser = function() {
-        currentIndex++;
-        renderUser();
-    };
+        window.likeUser = function(userId) {
+            if (Telegram.WebApp) {
+                Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'like',
+                    target_id: userId
+                }));
+            }
+            currentIndex++;
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
+            showToast('Liked!', 'success');
+            document.getElementById('likeSound')?.play();
+            renderUser();
+        };
 
-    renderUser();
+        window.nextUser = function() {
+            currentIndex++;
+            renderUser();
+        };
+
+        renderUser();
+    } catch (error) {
+        console.error('Find users error:', error);
+        showToast('Failed to load users', 'error');
+    }
 }
 
 function playQuiz() {
@@ -571,84 +575,4 @@ function manageCoins() {
 function viewUsers() {
     const users = [
         { id: 1, nickname: 'Alice', coins: 50, photo: '/static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', coins: 30, photo: '/static/images/avatar.png' }
-    ];
-    app.innerHTML = `
-        <div class="card fade-in">
-            <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Users</h2>
-            <div class="grid gap-2">
-                ${users.map(u => `
-                    <div class="bg-gray-800/50 backdrop-blur-sm p-3 rounded-lg">
-                        <div class="flex items-center">
-                            <img src="${u.photo}" alt="${u.nickname}" class="w-12 h-12 rounded-full mr-3">
-                            <div>
-                                <p><strong>${u.nickname}</strong> (ID: ${u.id})</p>
-                                <p>Coins: ${u.coins}</p>
-                            </div>
-                        </div>
-                        <button class="button bg-blue-600 hover:bg-blue-700 mt-2 w-full" onclick="editUser(${u.id})">Edit</button>
-                    </div>
-                `).join('')}
-            </div>
-            <button id="back" class="button w-full mt-4">Back</button>
-        </div>
-    `;
-    document.getElementById('back').addEventListener('click', adminPanel);
-}
-
-function editUser(userId) {
-    app.innerHTML = `
-        <div class="card fade-in">
-            <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Edit User ${userId}</h2>
-            <input id="nickname" type="text" placeholder="Nickname" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg mb-3">
-            <input id="coins" type="number" placeholder="Coins" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg mb-3">
-            <button id="save" class="button w-full">Save</button>
-            <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
-        </div>
-    `;
-    document.getElementById('save').addEventListener('click', () => {
-        const nickname = document.getElementById('nickname').value;
-        const coins = document.getElementById('coins').value;
-        if (!nickname && !coins) {
-            showToast('Enter at least one field', 'error');
-            return;
-        }
-        if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({ 
-                action: 'admin_edit_user', 
-                user_id: userId, 
-                nickname: nickname || undefined, 
-                coins: coins ? parseInt(coins) : undefined 
-            }));
-        }
-        showToast(`User ${userId} updated`, 'success');
-        viewUsers();
-    });
-    document.getElementById('back').addEventListener('click', viewUsers);
-}
-
-function banUser() {
-    const userId = prompt('Enter user ID to ban:');
-    if (userId) {
-        if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
-        }
-        showToast(`User ${userId} banned`, 'success');
-    } else {
-        showToast('Invalid user ID', 'error');
-    }
-}
-
-function sendBroadcast() {
-    const text = prompt('Enter broadcast message:');
-    if (text) {
-        if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
-        }
-        showToast('Broadcast sent', 'success');
-    } else {
-        showToast('Enter a message', 'error');
-    }
-}
-
-initWebApp();
+        { id:
