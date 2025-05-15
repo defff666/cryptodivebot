@@ -23,9 +23,28 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-function initWebApp() {
+function loadTelegramSDK() {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://telegram.org/js/telegram-web-app.js';
+        script.async = true;
+        script.onload = () => {
+            console.log('Telegram SDK loaded');
+            resolve();
+        };
+        script.onerror = () => {
+            console.error('Failed to load Telegram SDK');
+            reject(new Error('Failed to load Telegram SDK'));
+        };
+        document.head.appendChild(script);
+    });
+}
+
+async function initWebApp() {
     console.log('Initializing Web App...');
     try {
+        // Try loading Telegram SDK
+        await loadTelegramSDK();
         if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
@@ -39,7 +58,13 @@ function initWebApp() {
         }
     } catch (error) {
         console.error('Init error:', error);
-        app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p><button id="retry" class="button mt-4">Retry</button></div>';
+        app.innerHTML = `
+            <div class="card">
+                <p class="text-red-500">Error: ${error.message}</p>
+                <p class="text-gray-300">Please try opening this app in Telegram.</p>
+                <button id="retry" class="button mt-4">Retry</button>
+            </div>
+        `;
         document.getElementById('retry')?.addEventListener('click', initWebApp);
         showToast('Failed to initialize app', 'error');
     }
@@ -49,28 +74,9 @@ async function checkUserStatus() {
     console.log('Checking user status...');
     try {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
-        if (currentUser && Telegram.WebApp) {
-            console.log('Requesting profile from Telegram...');
-            if (!userProfile) {
-                userProfile = {
-                    nickname: currentUser.username || 'User',
-                    age: 18,
-                    country: 'USA',
-                    city: 'New York',
-                    gender: 'Male',
-                    interests: 'Music',
-                    photo: '/static/images/avatar.png',
-                    coins: 10,
-                    likes: [],
-                    matches: [],
-                    blocked: false
-                };
-                localStorage.setItem('userProfile', JSON.stringify(userProfile));
-                console.log('Set default profile:', userProfile);
-            }
-        } else if (!userProfile) {
+        if (!userProfile) {
             userProfile = {
-                nickname: currentUser.username || 'User',
+                nickname: currentUser?.username || 'User',
                 age: 18,
                 country: 'USA',
                 city: 'New York',
@@ -101,6 +107,7 @@ function renderLogin() {
             <h2 class="text-4xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">CryptoDiveBot</h2>
             <p class="mb-6 text-gray-300">Join the ultimate crypto adventure!</p>
             <button id="startRegistration" class="button w-full">Start Now</button>
+            <p class="mt-4 text-gray-400">Debug: App loaded</p>
         </div>
     `;
     const startButton = document.getElementById('startRegistration');
@@ -123,6 +130,7 @@ function renderMainMenu() {
             <button id="findUsers" class="button w-full mb-4">🔍 Find Users</button>
             <button id="playQuiz" class="button w-full mb-4">🎮 Play Quiz</button>
             ${isAdmin ? '<button id="adminPanel" class="button w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">🛠 Admin Panel</button>' : ''}
+            <p class="mt-4 text-gray-400">Debug: Menu loaded</p>
         </div>
     `;
     document.getElementById('viewProfile')?.addEventListener('click', viewProfile);
@@ -217,6 +225,7 @@ function renderRegistrationStep() {
             </div>
             ${steps[registrationStep].input}
             <button id="nextStep" class="button w-full mt-4">Next</button>
+            <p class="mt-4 text-gray-400">Debug: Step ${registrationStep + 1}</p>
         </div>
     `;
 
@@ -367,6 +376,7 @@ function viewProfile() {
                     <p class="mt-1"><strong>Coins:</strong> <span id="coinCount" class="text-yellow-400 animate-pulse">💰 ${profile.coins}</span></p>
                     <button id="editProfile" class="button w-full mt-4">Edit Profile</button>
                     <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
+                    <p class="mt-4 text-gray-400">Debug: Profile loaded</p>
                 </div>
             </div>
         `;
@@ -420,6 +430,7 @@ async function findUsers() {
                         <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">No More Users</h2>
                         <p class="text-gray-300 mb-4">Come back later!</p>
                         <button id="back" class="button w-full">Back</button>
+                        <p class="mt-4 text-gray-400">Debug: No more users</p>
                     </div>
                 `;
                 document.getElementById('back').addEventListener('click', renderMainMenu);
@@ -438,6 +449,7 @@ async function findUsers() {
                             <button id="nextButton" class="next-button">❌</button>
                         </div>
                     </div>
+                    <p class="mt-4 text-gray-400 text-center">Debug: User ${user.id}</p>
                 </div>
             `;
             document.getElementById('likeButton').addEventListener('click', () => likeUser(user.id));
@@ -452,7 +464,11 @@ async function findUsers() {
                 }));
             }
             currentIndex++;
-            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
+            try {
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
+            } catch (e) {
+                console.warn('Confetti not available:', e);
+            }
             showToast('Liked!', 'success');
             renderUser();
         };
@@ -487,6 +503,7 @@ function playQuiz() {
                 `).join('')}
             </div>
             <button id="back" class="button w-full mt-4 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
+            <p class="mt-4 text-gray-400">Debug: Quiz loaded</p>
         </div>
     `;
     document.querySelectorAll('.quiz-option').forEach(button => {
@@ -524,6 +541,7 @@ function adminPanel() {
                 <button id="sendBroadcast" class="button bg-pink-600 hover:bg-pink-700">📢 Send Broadcast</button>
                 <button id="back" class="button bg-gray-700/50 hover:bg-gray-800/50">Back</button>
             </div>
+            <p class="mt-4 text-gray-400">Debug: Admin panel loaded</p>
         </div>
     `;
     document.getElementById('viewStats').addEventListener('click', viewStats);
@@ -546,6 +564,7 @@ function viewStats() {
             <p class="mb-2"><strong>Matches:</strong> 456</p>
             <p class="mb-4"><strong>Active Chats:</strong> 789</p>
             <button id="back" class="button w-full">Back</button>
+            <p class="mt-4 text-gray-400">Debug: Stats loaded</p>
         </div>
     `;
     document.getElementById('back').addEventListener('click', adminPanel);
@@ -585,6 +604,7 @@ function viewUsers() {
                 `).join('')}
             </div>
             <button id="back" class="button w-full mt-4">Back</button>
+            <p class="mt-4 text-gray-400">Debug: Users loaded</p>
         </div>
     `;
     document.getElementById('back').addEventListener('click', adminPanel);
