@@ -3,7 +3,10 @@ import logging
 import asyncio
 from config import DATABASE_URL
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 async def init_db(pool=None):
@@ -69,7 +72,7 @@ async def init_db(pool=None):
                 
                 logger.info("Users table already exists, verified schema")
 
-            # Verify table
+            # Verify table schema
             schema = await conn.fetch("""
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
