@@ -1,8 +1,7 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.exceptions import TelegramBadRequest
 from config import WEB_APP_URL
 from services.user_manager import UserManager
 from services.matching import MatchingService
@@ -51,7 +50,7 @@ async def get_profile(message: Message, state: FSMContext):
     user_manager = UserManager(message.bot, state)
     user = await user_manager.get_user(message.from_user.id)
     if user:
-        await message.answer(f"Profile:\n{json.dumps(user, indent=2)}")
+        await message.answer(f"Profile:\n{json.dumps(user.__dict__, indent=2, ensure_ascii=False)}")
     else:
         await message.answer("No profile found.")
     logger.info(f"User {message.from_user.id} requested profile: {user}")
@@ -61,13 +60,23 @@ async def reset_profile(message: Message, state: FSMContext):
     """Debug command to reset user profile."""
     user_manager = UserManager(message.bot, state)
     try:
-        async with user_manager.pool.acquire() as conn:
+        pool = state.data.get("db_pool")
+        if not pool:
+            raise ValueError("Database pool not initialized")
+        async with pool.acquire() as conn:
             await conn.execute("DELETE FROM users WHERE id = $1", message.from_user.id)
         await message.answer("Profile reset. Please register again.", reply_markup=get_main_menu())
         logger.info(f"User {message.from_user.id} reset their profile")
     except Exception as e:
         await message.answer("Failed to reset profile.")
         logger.error(f"Error resetting profile for user {message.from_user.id}: {e}")
+
+@router.message(F.command == "dump_state")
+async def dump_state(message: Message, state: FSMContext):
+    """Debug command to dump FSM state."""
+    state_data = await state.get_data()
+    await message.answer(f"FSM State:\n{json.dumps(state_data, indent=2, ensure_ascii=False)}")
+    logger.info(f"User {message.from_user.id} dumped state: {state_data}")
 
 @router.message(F.web_app_data)
 async def web_app_data(message: Message, state: FSMContext):
@@ -111,19 +120,30 @@ async def web_app_data(message: Message, state: FSMContext):
 
         elif action == "edit_profile":
             user_data = data.get("data", {})
-            if not any(user_data.get(key) for key in ["nickname", "age", "country", "city", "gender", "interests", "photo"]):
-                await message.answer("No profile data provided.")
-                logger.error(f"No profile data for edit by user {message.from_user.id}: {user_data}")
-                return
             try:
+                # Fetch current profile to fill missing fields
+                current_user = await user_manager.get_user(message.from_user.id)
+                if not current_user:
+                    await message.answer("No profile found. Please register first.")
+                    logger.error(f"No profile for edit by user {message.from_user.id}")
+                    return
+                
+                # Ensure all required fields
+                user_data.setdefault("nickname", current_user.nickname)
+                user_data.setdefault("age", current_user.age)
+                user_data.setdefault("country", current_user.country)
+                user_data.setdefault("city", current_user.city)
+                user_data.setdefault("gender", current_user.gender)
+                user_data.setdefault("interests", current_user.interests)
+                
                 await user_manager.update_user(
                     user_id=message.from_user.id,
-                    nickname=user_data.get("nickname"),
-                    age=int(user_data["age"]) if user_data.get("age") else None,
-                    country=user_data.get("country"),
-                    city=user_data.get("city"),
-                    gender=user_data.get("gender"),
-                    interests=user_data.get("interests"),
+                    nickname=user_data["nickname"],
+                    age=int(user_data["age"]),
+                    country=user_data["country"],
+                    city=user_data["city"],
+                    gender=user_data["gender"],
+                    interests=user_data["interests"],
                     photo=user_data.get("photo")
                 )
                 await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
