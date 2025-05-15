@@ -23,29 +23,52 @@ function showToast(message, type = 'info') {
 
 function initWebApp() {
     try {
-        if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
-            console.error('Telegram WebApp not available');
-            app.innerHTML = '<div class="card"><p class="text-red-500">Error: Telegram WebApp not loaded</p></div>';
-            return;
-        }
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        currentUser = Telegram.WebApp.initDataUnsafe.user;
-        if (!currentUser) {
-            renderLogin();
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+            currentUser = Telegram.WebApp.initDataUnsafe.user || null;
+            if (!currentUser) {
+                console.warn('No Telegram user data, running in demo mode');
+                renderLogin();
+            } else {
+                checkUserStatus();
+            }
         } else {
+            console.warn('Telegram WebApp not available, running in browser mode');
+            currentUser = { id: 'demo', username: 'DemoUser' }; // Demo mode
             checkUserStatus();
         }
     } catch (error) {
         console.error('Error initializing Web App:', error);
         app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p></div>';
+        showToast('Failed to initialize app', 'error');
     }
 }
 
 async function checkUserStatus() {
-    // Симуляция загрузки профиля (замени на API)
-    userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
-    renderMainMenu();
+    try {
+        userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
+        if (currentUser && !userProfile) {
+            // Загрузка профиля из базы (заглушка, замени на API)
+            userProfile = {
+                nickname: currentUser.username || 'User',
+                age: 18,
+                country: 'Unknown',
+                city: 'Unknown',
+                gender: 'Unknown',
+                interests: 'None',
+                photo: '/static/images/avatar.png',
+                coins: 10
+            };
+            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            console.log('Profile loaded:', userProfile);
+        }
+        renderMainMenu();
+    } catch (error) {
+        console.error('Error checking user status:', error);
+        showToast('Failed to load profile', 'error');
+        renderLogin();
+    }
 }
 
 function renderLogin() {
@@ -56,7 +79,13 @@ function renderLogin() {
             <button id="startRegistration" class="button w-full">Start Now</button>
         </div>
     `;
-    document.getElementById('startRegistration').addEventListener('click', startRegistration);
+    const startButton = document.getElementById('startRegistration');
+    if (startButton) {
+        startButton.addEventListener('click', startRegistration);
+        console.log('Start button event listener added');
+    } else {
+        console.error('Start button not found');
+    }
 }
 
 function renderMainMenu() {
@@ -66,7 +95,7 @@ function renderMainMenu() {
             <button id="viewProfile" class="button w-full mb-4">👤 Profile</button>
             <button id="findUsers" class="button w-full mb-4">🔍 Find Users</button>
             <button id="playQuiz" class="button w-full mb-4">🎮 Play Quiz</button>
-            ${currentUser && currentUser.id in (Telegram.WebApp.initDataUnsafe.admin_ids || []) ? 
+            ${currentUser && currentUser.id in (Telegram.WebApp?.initDataUnsafe?.admin_ids || []) ? 
                 '<button id="adminPanel" class="button w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">🛠 Admin Panel</button>' : ''}
         </div>
     `;
@@ -82,9 +111,15 @@ let registrationStep = 0;
 const registrationData = {};
 
 function startRegistration() {
-    registrationStep = 0;
-    registrationData = {};
-    renderRegistrationStep();
+    try {
+        registrationStep = 0;
+        registrationData = {};
+        renderRegistrationStep();
+        console.log('Started registration');
+    } catch (error) {
+        console.error('Error starting registration:', error);
+        showToast('Failed to start registration', 'error');
+    }
 }
 
 function renderRegistrationStep() {
@@ -172,44 +207,50 @@ function renderRegistrationStep() {
 }
 
 function nextRegistrationStep() {
-    const stepFields = ['nickname', 'age', 'country', 'city', 'gender', 'interests', 'photo'];
-    const field = stepFields[registrationStep];
-    let value;
+    try {
+        const stepFields = ['nickname', 'age', 'country', 'city', 'gender', 'interests', 'photo'];
+        const field = stepFields[registrationStep];
+        let value;
 
-    if (field === 'interests') {
-        value = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value).join(', ');
-    } else if (field === 'photo') {
-        const input = document.getElementById('photo');
-        if (input.files.length) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                registrationData.photo = reader.result; // base64
-                console.log('Photo saved as base64:', registrationData.photo.substring(0, 50));
-                registrationStep++;
-                renderRegistrationStep();
-            };
-            reader.readAsDataURL(input.files[0]);
-            return;
+        if (field === 'interests') {
+            value = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value).join(', ');
+        } else if (field === 'photo') {
+            const input = document.getElementById('photo');
+            if (input.files.length) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    registrationData.photo = reader.result; // base64
+                    console.log('Photo saved as base64:', registrationData.photo.substring(0, 50));
+                    registrationStep++;
+                    renderRegistrationStep();
+                };
+                reader.readAsDataURL(input.files[0]);
+                return;
+            } else {
+                value = null;
+            }
         } else {
-            value = null;
+            value = document.getElementById(field)?.value;
         }
-    } else {
-        value = document.getElementById(field)?.value;
-    }
 
-    if (field !== 'photo' && !value) {
-        showToast(`Please enter ${field}`, 'error');
-        return;
-    }
+        if (field !== 'photo' && !value) {
+            showToast(`Please enter ${field}`, 'error');
+            return;
+        }
 
-    if (field === 'age' && (isNaN(value) || value < 18)) {
-        showToast('Age must be a number and at least 18', 'error');
-        return;
-    }
+        if (field === 'age' && (isNaN(value) || value < 18)) {
+            showToast('Age must be a number and at least 18', 'error');
+            return;
+        }
 
-    registrationData[field] = value;
-    registrationStep++;
-    renderRegistrationStep();
+        registrationData[field] = value;
+        registrationStep++;
+        renderRegistrationStep();
+        console.log('Registration step:', registrationStep, 'Data:', registrationData);
+    } catch (error) {
+        console.error('Error in nextRegistrationStep:', error);
+        showToast('Registration error', 'error');
+    }
 }
 
 function skipPhoto() {
@@ -219,70 +260,98 @@ function skipPhoto() {
 }
 
 function submitRegistration() {
-    const action = userProfile ? 'edit_profile' : 'register';
-    Telegram.WebApp.sendData(JSON.stringify({
-        action,
-        data: registrationData
-    }));
-    userProfile = { ...registrationData, coins: userProfile?.coins || 10 };
-    localStorage.setItem('userProfile', JSON.stringify(userProfile));
-    showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
-    renderMainMenu();
+    try {
+        const action = userProfile ? 'edit_profile' : 'register';
+        Telegram.WebApp?.sendData(JSON.stringify({
+            action,
+            data: registrationData
+        }));
+        userProfile = { ...registrationData, coins: userProfile?.coins || 10 };
+        localStorage.setItem('userProfile', JSON.stringify(userProfile));
+        showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
+        console.log('Submitted registration:', userProfile);
+        renderMainMenu();
+    } catch (error) {
+        console.error('Error submitting registration:', error);
+        showToast('Failed to save profile', 'error');
+    }
 }
 
 function viewProfile() {
-    const profile = userProfile || {
-        nickname: 'User',
-        age: 18,
-        country: 'Unknown',
-        city: 'Unknown',
-        gender: 'Unknown',
-        interests: 'None',
-        photo: 'static/images/avatar.png',
-        coins: 10
-    };
-    app.innerHTML = `
-        <div class="card flip-in">
-            <div class="relative">
-                <div class="avatar-ring mx-auto w-36 h-36">
-                    <img src="${profile.photo}" alt="Profile" class="w-full h-full object-cover rounded-full">
+    try {
+        const profile = userProfile || {
+            nickname: currentUser?.username || 'User',
+            age: 18,
+            country: 'Unknown',
+            city: 'Unknown',
+            gender: 'Unknown',
+            interests: 'None',
+            photo: '/static/images/avatar.png',
+            coins: 10
+        };
+        app.innerHTML = `
+            <div class="card flip-in">
+                <div class="relative">
+                    <div class="avatar-ring mx-auto w-36 h-36">
+                        <img src="${profile.photo}" alt="Profile" class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <div class="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-blue-900/50 to-transparent rounded-t-2xl"></div>
                 </div>
-                <div class="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-blue-900/50 to-transparent rounded-t-2xl"></div>
+                <div class="p-4 text-center">
+                    <h2 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">${profile.nickname}</h2>
+                    <p class="text-gray-300">${profile.age} • ${profile.city}, ${profile.country}</p>
+                    <p class="mt-2"><strong>Gender:</strong> ${profile.gender}</p>
+                    <p class="mt-1"><strong>Interests:</strong> ${profile.interests}</p>
+                    <p class="mt-1"><strong>Coins:</strong> <span id="coinCount" class="text-yellow-400 animate-pulse">💰 ${profile.coins}</span></p>
+                    <button id="editProfile" class="button w-full mt-4">Edit Profile</button>
+                    <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
+                </div>
             </div>
-            <div class="p-4 text-center">
-                <h2 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">${profile.nickname}</h2>
-                <p class="text-gray-300">${profile.age} • ${profile.city}, ${profile.country}</p>
-                <p class="mt-2"><strong>Gender:</strong> ${profile.gender}</p>
-                <p class="mt-1"><strong>Interests:</strong> ${profile.interests}</p>
-                <p class="mt-1"><strong>Coins:</strong> <span id="coinCount" class="text-yellow-400 animate-pulse">💰 ${profile.coins}</span></p>
-                <button id="editProfile" class="button w-full mt-4">Edit Profile</button>
-                <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
-            </div>
-        </div>
-        <script>
-            let coins = ${profile.coins};
-            setInterval(() => {
-                coins += 1;
-                document.getElementById('coinCount').textContent = \`💰 \${coins}\`;
-                document.getElementById('coinCount').classList.add('animate-bounce');
-                setTimeout(() => document.getElementById('coinCount').classList.remove('animate-bounce'), 500);
-            }, 10000);
-        </script>
-    `;
-    document.getElementById('editProfile').addEventListener('click', editProfile);
-    document.getElementById('back').addEventListener('click', renderMainMenu);
+            <script>
+                let coins = ${profile.coins};
+                setInterval(() => {
+                    coins += 1;
+                    document.getElementById('coinCount').textContent = \`💰 \${coins}\`;
+                    document.getElementById('coinCount').classList.add('animate-bounce');
+                    setTimeout(() => document.getElementById('coinCount').classList.remove('animate-bounce'), 500);
+                }, 10000);
+            </script>
+        `;
+        const editButton = document.getElementById('editProfile');
+        if (editButton) {
+            editButton.addEventListener('click', editProfile);
+            console.log('Edit profile button event listener added');
+        } else {
+            console.error('Edit profile button not found');
+        }
+        document.getElementById('back').addEventListener('click', renderMainMenu);
+    } catch (error) {
+        console.error('Error rendering profile:', error);
+        showToast('Failed to load profile', 'error');
+    }
 }
 
 function editProfile() {
-    registrationStep = 0;
-    registrationData = { ...userProfile };
-    renderRegistrationStep();
+    try {
+        if (!userProfile) {
+            showToast('No profile data to edit', 'error');
+            console.error('No userProfile for editing');
+            return;
+        }
+        registrationStep = 0;
+        registrationData = { ...userProfile };
+        renderRegistrationStep();
+        console.log('Editing profile:', registrationData);
+    } catch (error) {
+        console.error('Error editing profile:', error);
+        showToast('Failed to edit profile', 'error');
+    }
 }
 
 async function findUsers() {
     const users = [
-        { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: 'static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: 'static/images/avatar.png' }
+        { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
+        { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
     ];
     let currentIndex = 0;
 
@@ -318,7 +387,7 @@ async function findUsers() {
     }
 
     window.likeUser = function(userId) {
-        Telegram.WebApp.sendData(JSON.stringify({
+        Telegram.WebApp?.sendData(JSON.stringify({
             action: 'like',
             target_id: userId
         }));
@@ -353,7 +422,7 @@ function playQuiz() {
                     <button class="button w-full quiz-option" data-answer="${opt}">${opt}</button>
                 `).join('')}
             </div>
-            <button id="back" class="button w-full mt-4 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
+            <  <button id="back" class="button w-full mt-4 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
         </div>
     `;
     document.querySelectorAll('.quiz-option').forEach(button => {
@@ -370,7 +439,7 @@ function playQuiz() {
 }
 
 function submitQuizAnswer(questionId, answer) {
-    Telegram.WebApp.sendData(JSON.stringify({
+    Telegram.WebApp?.sendData(JSON.stringify({
         action: 'quiz_answer',
         question_id: questionId,
         answer: answer
@@ -400,7 +469,7 @@ function adminPanel() {
 }
 
 function viewStats() {
-    Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_stats' }));
+    Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_stats' }));
     showToast('Fetching stats...', 'info');
     // Симуляция (замени на API)
     app.innerHTML = `
@@ -419,7 +488,7 @@ function manageCoins() {
     const userId = prompt('Enter user ID:');
     const amount = prompt('Enter coins amount (positive to add, negative to subtract):');
     if (userId && amount) {
-        Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_coins', user_id: userId, amount: parseInt(amount) }));
+        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_coins', user_id: userId, amount: parseInt(amount) }));
         showToast(`Coins updated for user ${userId}`, 'success');
     } else {
         showToast('Invalid input', 'error');
@@ -429,8 +498,8 @@ function manageCoins() {
 function viewUsers() {
     // Симуляция (замени на API)
     const users = [
-        { id: 1, nickname: 'Alice', coins: 50, photo: 'static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', coins: 30, photo: 'static/images/avatar.png' }
+        { id: 1, nickname: 'Alice', coins: 50, photo: '/static/images/avatar.png' },
+        { id: 2, nickname: 'Bob', coins: 30, photo: '/static/images/avatar.png' }
     ];
     app.innerHTML = `
         <div class="card fade-in">
@@ -472,7 +541,7 @@ function editUser(userId) {
             showToast('Enter at least one field', 'error');
             return;
         }
-        Telegram.WebApp.sendData(JSON.stringify({ 
+        Telegram.WebApp?.sendData(JSON.stringify({ 
             action: 'admin_edit_user', 
             user_id: userId, 
             nickname: nickname || undefined, 
@@ -487,7 +556,7 @@ function editUser(userId) {
 function banUser() {
     const userId = prompt('Enter user ID to ban:');
     if (userId) {
-        Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
+        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
         showToast(`User ${userId} banned`, 'success');
     } else {
         showToast('Invalid user ID', 'error');
@@ -497,7 +566,7 @@ function banUser() {
 function sendBroadcast() {
     const text = prompt('Enter broadcast message:');
     if (text) {
-        Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
+        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
         showToast('Broadcast sent', 'success');
     } else {
         showToast('Enter a message', 'error');
