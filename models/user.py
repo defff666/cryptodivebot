@@ -17,5 +17,7 @@ class User:
     blocked: bool = False
 
     def __post_init__(self):
-        self.likes = self.likes or []
-        self.matches = self.matches or []
+        if self.likes is None:
+            self.likes = []
+        if self.matches is None:
+            self.matches = []
