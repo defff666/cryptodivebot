@@ -1,4 +1,3 @@
-// Инициализация Web App
 const app = document.getElementById('app');
 let currentUser = null;
 
@@ -17,7 +16,7 @@ function initWebApp() {
     try {
         if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
             console.error('Telegram WebApp not available');
-            app.innerHTML = '<div class="card"><p>Error: Telegram WebApp not loaded</p></div>';
+            app.innerHTML = '<div class="card"><p class="text-red-500">Error: Telegram WebApp not loaded</p></div>';
             return;
         }
         Telegram.WebApp.ready();
@@ -30,7 +29,7 @@ function initWebApp() {
         }
     } catch (error) {
         console.error('Error initializing Web App:', error);
-        app.innerHTML = '<div class="card"><p>Error: ' + error.message + '</p></div>';
+        app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p></div>';
     }
 }
 
@@ -41,8 +40,9 @@ async function checkUserStatus() {
 function renderLogin() {
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">Welcome to CryptoDiveBot</h2>
-            <button id="startRegistration" class="button">Start Registration</button>
+            <h2 class="text-3xl font-bold mb-6 text-blue-400">CryptoDiveBot</h2>
+            <p class="mb-4 text-gray-300">Join the crypto adventure!</p>
+            <button id="startRegistration" class="button w-full">Start Registration</button>
         </div>
     `;
     document.getElementById('startRegistration').addEventListener('click', startRegistration);
@@ -51,12 +51,12 @@ function renderLogin() {
 function renderMainMenu() {
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">Main Menu</h2>
-            <button id="viewProfile" class="button mb-2">View Profile</button>
-            <button id="findUsers" class="button mb-2">Find Users</button>
-            <button id="playQuiz" class="button mb-2">Play Quiz</button>
+            <h2 class="text-3xl font-bold mb-6 text-blue-400">Main Menu</h2>
+            <button id="viewProfile" class="button w-full mb-3">👤 Profile</button>
+            <button id="findUsers" class="button w-full mb-3">🔍 Find Users</button>
+            <button id="playQuiz" class="button w-full mb-3">🎮 Play Quiz</button>
             ${currentUser && currentUser.id in (Telegram.WebApp.initDataUnsafe.admin_ids || []) ? 
-                '<button id="adminPanel" class="button">Admin Panel</button>' : ''}
+                '<button id="adminPanel" class="button w-full bg-purple-600 hover:bg-purple-700">🛠 Admin Panel</button>' : ''}
         </div>
     `;
     document.getElementById('viewProfile').addEventListener('click', viewProfile);
@@ -80,16 +80,16 @@ function renderRegistrationStep() {
     const steps = [
         {
             title: 'Nickname',
-            input: '<input id="nickname" type="text" placeholder="Enter your nickname" class="w-full p-2 mb-4 bg-gray-700 rounded">'
+            input: '<input id="nickname" type="text" placeholder="Enter your nickname" class="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">'
         },
         {
             title: 'Age',
-            input: '<input id="age" type="number" placeholder="Enter your age (18+)" class="w-full p-2 mb-4 bg-gray-700 rounded">'
+            input: '<input id="age" type="number" placeholder="Enter your age (18+)" class="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">'
         },
         {
             title: 'Country',
             input: `
-                <select id="country" class="w-full p-2 mb-4 bg-gray-700 rounded">
+                <select id="country" class="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                     <option value="">Select country</option>
                     ${countries.map(c => `<option value="${c}">${c}</option>`).join('')}
                 </select>
@@ -98,7 +98,7 @@ function renderRegistrationStep() {
         {
             title: 'City',
             input: `
-                <select id="city" class="w-full p-2 mb-4 bg-gray-700 rounded">
+                <select id="city" class="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                     <option value="">Select city</option>
                 </select>
             `
@@ -106,7 +106,7 @@ function renderRegistrationStep() {
         {
             title: 'Gender',
             input: `
-                <select id="gender" class="w-full p-2 mb-4 bg-gray-700 rounded">
+                <select id="gender" class="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                     <option value="">Select gender</option>
                     ${genders.map(g => `<option value="${g}">${g}</option>`).join('')}
                 </select>
@@ -115,9 +115,9 @@ function renderRegistrationStep() {
         {
             title: 'Interests',
             input: `
-                <div class="mb-4">
+                <div class="mb-4 grid grid-cols-2 gap-2">
                     ${interestsList.map(i => `
-                        <label class="block"><input type="checkbox" value="${i}" class="mr-2">${i}</label>
+                        <label class="flex items-center"><input type="checkbox" value="${i}" class="mr-2 accent-blue-500">${i}</label>
                     `).join('')}
                 </div>
             `
@@ -125,8 +125,8 @@ function renderRegistrationStep() {
         {
             title: 'Photo',
             input: `
-                <input id="photo" type="file" accept="image/*" class="w-full p-2 mb-4 bg-gray-700 rounded">
-                <button id="skipPhoto" class="button">Skip</button>
+                <input id="photo" type="file" accept="image/*" class="w-full p-3 bg-gray-700 rounded-lg text-white">
+                <button id="skipPhoto" class="button w-full mt-2 bg-gray-600 hover:bg-gray-700">Skip</button>
             `
         }
     ];
@@ -138,12 +138,12 @@ function renderRegistrationStep() {
 
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">${steps[registrationStep].title}</h2>
+            <h2 class="text-2xl font-bold mb-4 text-blue-400">${steps[registrationStep].title}</h2>
             <div class="progress-bar mb-4">
-                <div class="bg-blue-600 h-2 rounded" style="width: ${(registrationStep + 1) / steps.length * 100}%"></div>
+                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: ${(registrationStep + 1) / steps.length * 100}%"></div>
             </div>
             ${steps[registrationStep].input}
-            <button id="nextStep" class="button">Next</button>
+            <button id="nextStep" class="button w-full mt-4">Next</button>
         </div>
     `;
 
@@ -175,12 +175,14 @@ function nextRegistrationStep() {
     }
 
     if (field !== 'photo' && !value) {
-        alert(`Please enter ${field}`);
+        app.innerHTML += '<p class="text-red-500 mt-2">Please enter ' + field + '</p>';
+        setTimeout(() => renderRegistrationStep(), 2000);
         return;
     }
 
     if (field === 'age' && (isNaN(value) || value < 18)) {
-        alert('Age must be a number and at least 18');
+        app.innerHTML += '<p class="text-red-500 mt-2">Age must be a number and at least 18</p>';
+        setTimeout(() => renderRegistrationStep(), 2000);
         return;
     }
 
@@ -190,11 +192,9 @@ function nextRegistrationStep() {
 }
 
 function skipPhoto() {
-    if (confirm('Skip photo?')) {
-        registrationData.photo = null;
-        registrationStep++;
-        renderRegistrationStep();
-    }
+    registrationData.photo = null;
+    registrationStep++;
+    renderRegistrationStep();
 }
 
 function submitRegistration() {
@@ -218,16 +218,20 @@ function viewProfile() {
     };
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">Your Profile</h2>
-            <img src="${profile.photo}" alt="Profile" class="w-full h-48 object-cover rounded-lg mb-4">
-            <p><strong>Nickname:</strong> ${profile.nickname}</p>
-            <p><strong>Age:</strong> ${profile.age}</p>
-            <p><strong>City:</strong> ${profile.city}, ${profile.country}</p>
-            <p><strong>Gender:</strong> ${profile.gender}</p>
-            <p><strong>Interests:</strong> ${profile.interests}</p>
-            <p><strong>Coins:</strong> ${profile.coins}</p>
-            <button id="editProfile" class="button mt-4">Edit Profile</button>
-            <button id="back" class="button mt-2">Back</button>
+            <div class="relative">
+                <img src="${profile.photo}" alt="Profile" class="w-full h-64 object-cover rounded-t-2xl">
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-transparent p-4">
+                    <h2 class="text-2xl font-bold text-white">${profile.nickname}</h2>
+                    <p class="text-gray-300">${profile.age} • ${profile.city}, ${profile.country}</p>
+                </div>
+            </div>
+            <div class="p-4">
+                <p class="mb-2"><strong>Gender:</strong> ${profile.gender}</p>
+                <p class="mb-2"><strong>Interests:</strong> ${profile.interests}</p>
+                <p class="mb-4"><strong>Coins:</strong> <span class="text-yellow-400">💰 ${profile.coins}</span></p>
+                <button id="editProfile" class="button w-full">Edit Profile</button>
+                <button id="back" class="button w-full mt-2 bg-gray-600 hover:bg-gray-700">Back</button>
+            </div>
         </div>
     `;
     document.getElementById('editProfile').addEventListener('click', editProfile);
@@ -250,8 +254,9 @@ async function findUsers() {
         if (currentIndex >= users.length) {
             app.innerHTML = `
                 <div class="card fade-in">
-                    <h2 class="text-2xl font-bold mb-4">No more users</h2>
-                    <button id="back" class="button">Back</button>
+                    <h2 class="text-2xl font-bold mb-4 text-blue-400">No more users</h2>
+                    <p class="text-gray-300 mb-4">Check back later!</p>
+                    <button id="back" class="button w-full">Back</button>
                 </div>
             `;
             document.getElementById('back').addEventListener('click', renderMainMenu);
@@ -260,13 +265,15 @@ async function findUsers() {
         const user = users[currentIndex];
         app.innerHTML = `
             <div class="card slide-in">
-                <img src="${user.photo}" alt="Profile" class="w-full h-48 object-cover rounded-lg mb-4">
-                <p><strong>${user.nickname}</strong>, ${user.age}</p>
-                <p>${user.city}</p>
-                <p>${user.interests}</p>
-                <div class="flex justify-between mt-4">
-                    <button id="likeButton" class="like-button">❤️</button>
-                    <button id="nextButton" class="next-button">❌</button>
+                <img src="${user.photo}" alt="Profile" class="w-full h-64 object-cover rounded-t-2xl">
+                <div class="p-4">
+                    <h2 class="text-2xl font-bold">${user.nickname}, ${user.age}</h2>
+                    <p class="text-gray-300">${user.city}</p>
+                    <p class="mb-4">${user.interests}</p>
+                    <div class="flex justify-between">
+                        <button id="likeButton" class="like-button text-3xl">❤️</button>
+                        <button id="nextButton" class="next-button text-3xl">❌</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -280,8 +287,8 @@ async function findUsers() {
             target_id: userId
         }));
         currentIndex++;
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         renderUser();
-        alert("It's a Match!");
     };
 
     window.nextUser = function() {
@@ -301,16 +308,23 @@ function playQuiz() {
     };
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">Quiz</h2>
-            <p class="mb-4">${question.text}</p>
-            ${question.options.map(opt => `
-                <button class="button mb-2 w-full quiz-option">${opt}</button>
-            `).join('')}
-            <button id="back" class="button mt-2">Back</button>
+            <h2 class="text-2xl font-bold mb-4 text-blue-400">Quiz Time!</h2>
+            <p class="mb-4 text-gray-200">${question.text}</p>
+            <div class="grid gap-2">
+                ${question.options.map(opt => `
+                    <button class="button w-full quiz-option" data-answer="${opt}">${opt}</button>
+                `).join('')}
+            </div>
+            <button id="back" class="button w-full mt-4 bg-gray-600 hover:bg-gray-700">Back</button>
         </div>
     `;
     document.querySelectorAll('.quiz-option').forEach(button => {
-        button.addEventListener('click', () => submitQuizAnswer(question.id, button.textContent));
+        button.addEventListener('click', () => {
+            const answer = button.getAttribute('data-answer');
+            submitQuizAnswer(question.id, answer);
+            button.classList.add(answer === question.correct ? 'bg-green-600' : 'bg-red-600');
+            setTimeout(renderMainMenu, 1000);
+        });
     });
     document.getElementById('back').addEventListener('click', renderMainMenu);
 }
@@ -321,17 +335,16 @@ function submitQuizAnswer(questionId, answer) {
         question_id: questionId,
         answer: answer
     }));
-    renderMainMenu();
 }
 
 function adminPanel() {
     app.innerHTML = `
         <div class="card fade-in">
-            <h2 class="text-2xl font-bold mb-4">Admin Panel</h2>
-            <button id="viewStats" class="button mb-2">View Stats</button>
-            <button id="banUser" class="button mb-2">Ban User</button>
-            <button id="sendBroadcast" class="button mb-2">Send Broadcast</button>
-            <button id="back" class="button">Back</button>
+            <h2 class="text-2xl font-bold mb-4 text-purple-400">Admin Panel</h2>
+            <button id="viewStats" class="button w-full mb-3 bg-purple-600 hover:bg-purple-700">📊 View Stats</button>
+            <button id="banUser" class="button w-full mb-3 bg-red-600 hover:bg-red-700">🚫 Ban User</button>
+            <button id="sendBroadcast" class="button w-full mb-3 bg-green-600 hover:bg-green-700">📢 Send Broadcast</button>
+            <button id="back" class="button w-full bg-gray-600 hover:bg-gray-700">Back</button>
         </div>
     `;
     document.getElementById('viewStats').addEventListener('click', viewStats);
