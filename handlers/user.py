@@ -63,7 +63,7 @@ async def web_app_data(message: Message, state: FSMContext):
             required_fields = ["nickname", "age", "country", "city", "gender", "interests"]
             if not all(key in user_data for key in required_fields):
                 await message.answer("Incomplete registration data. Please try again.")
-                logger.error(f"Incomplete registration data for user {message.from_user.id}")
+                logger.error(f"Incomplete registration data for user {message.from_user.id}: {user_data}")
                 return
             try:
                 await user_manager.register_user(
@@ -77,13 +77,18 @@ async def web_app_data(message: Message, state: FSMContext):
                     photo=user_data.get("photo")  # Base64 or null
                 )
                 await message.answer("Registration complete! Open the app to continue.", reply_markup=get_main_menu())
-                logger.info(f"User {message.from_user.id} registered successfully")
+                logger.info(f"User {message.from_user.id} registered successfully: {user_data}")
             except ValueError as e:
                 await message.answer(f"Invalid data: {e}")
                 logger.error(f"Registration failed for user {message.from_user.id}: {e}")
 
         elif action == "edit_profile":
             user_data = data.get("data", {})
+            required_fields = ["nickname", "age", "country", "city", "gender", "interests"]
+            if not any(key in user_data for key in required_fields):
+                await message.answer("No profile data provided.")
+                logger.error(f"No profile data for edit by user {message.from_user.id}: {user_data}")
+                return
             await user_manager.update_user(
                 user_id=message.from_user.id,
                 nickname=user_data.get("nickname"),
@@ -95,7 +100,7 @@ async def web_app_data(message: Message, state: FSMContext):
                 photo=user_data.get("photo")  # Base64 or null
             )
             await message.answer("Profile updated! Open the app to view.", reply_markup=get_main_menu())
-            logger.info(f"User {message.from_user.id} updated profile")
+            logger.info(f"User {message.from_user.id} updated profile: {user_data}")
 
         elif action == "like":
             target_id = data.get("target_id")
