@@ -22,34 +22,32 @@ function showToast(message, type = 'info') {
 }
 
 function initWebApp() {
+    console.log('Initializing Web App...');
     try {
         if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
             currentUser = Telegram.WebApp.initDataUnsafe.user || null;
-            if (!currentUser) {
-                console.warn('No Telegram user data, running in demo mode');
-                renderLogin();
-            } else {
-                checkUserStatus();
-            }
+            console.log('Telegram mode, user:', currentUser);
+            checkUserStatus();
         } else {
-            console.warn('Telegram WebApp not available, running in browser mode');
-            currentUser = { id: 'demo', username: 'DemoUser' }; // Demo mode
+            console.warn('No Telegram WebApp, switching to demo mode');
+            currentUser = { id: 'demo', username: 'DemoUser' };
             checkUserStatus();
         }
     } catch (error) {
-        console.error('Error initializing Web App:', error);
+        console.error('Init error:', error);
         app.innerHTML = '<div class="card"><p class="text-red-500">Error: ' + error.message + '</p></div>';
         showToast('Failed to initialize app', 'error');
     }
 }
 
 async function checkUserStatus() {
+    console.log('Checking user status...');
     try {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
         if (currentUser && !userProfile) {
-            // Загрузка профиля из базы (заглушка, замени на API)
+            console.log('No profile in localStorage, setting default');
             userProfile = {
                 nickname: currentUser.username || 'User',
                 age: 18,
@@ -61,17 +59,18 @@ async function checkUserStatus() {
                 coins: 10
             };
             localStorage.setItem('userProfile', JSON.stringify(userProfile));
-            console.log('Profile loaded:', userProfile);
         }
+        console.log('Current profile:', userProfile);
         renderMainMenu();
     } catch (error) {
-        console.error('Error checking user status:', error);
+        console.error('Check user status error:', error);
         showToast('Failed to load profile', 'error');
         renderLogin();
     }
 }
 
 function renderLogin() {
+    console.log('Rendering login page...');
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-4xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">CryptoDiveBot</h2>
@@ -85,10 +84,12 @@ function renderLogin() {
         console.log('Start button event listener added');
     } else {
         console.error('Start button not found');
+        showToast('UI error: Start button missing', 'error');
     }
 }
 
 function renderMainMenu() {
+    console.log('Rendering main menu...');
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-3xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Menu</h2>
@@ -111,18 +112,19 @@ let registrationStep = 0;
 const registrationData = {};
 
 function startRegistration() {
+    console.log('Starting registration...');
     try {
         registrationStep = 0;
         registrationData = {};
         renderRegistrationStep();
-        console.log('Started registration');
     } catch (error) {
-        console.error('Error starting registration:', error);
+        console.error('Start registration error:', error);
         showToast('Failed to start registration', 'error');
     }
 }
 
 function renderRegistrationStep() {
+    console.log('Rendering registration step:', registrationStep);
     const steps = [
         {
             title: 'Nickname',
@@ -193,13 +195,20 @@ function renderRegistrationStep() {
         </div>
     `;
 
-    document.getElementById('nextStep').addEventListener('click', nextRegistrationStep);
+    const nextButton = document.getElementById('nextStep');
+    if (nextButton) {
+        nextButton.addEventListener('click', nextRegistrationStep);
+        console.log('Next step button event listener added');
+    } else {
+        console.error('Next step button not found');
+    }
+
     if (document.getElementById('skipPhoto')) {
         document.getElementById('skipPhoto').addEventListener('click', skipPhoto);
     }
 
     if (steps[registrationStep].title === 'City') {
-        const country = registrationData.country;
+        const country = registrationData.country || '';
         const citySelect = document.getElementById('city');
         citySelect.innerHTML = `<option value="">Select city</option>` + 
             (cities[country] || []).map(c => `<option value="${c}">${c}</option>`).join('');
@@ -207,6 +216,7 @@ function renderRegistrationStep() {
 }
 
 function nextRegistrationStep() {
+    console.log('Next registration step:', registrationStep);
     try {
         const stepFields = ['nickname', 'age', 'country', 'city', 'gender', 'interests', 'photo'];
         const field = stepFields[registrationStep];
@@ -216,10 +226,10 @@ function nextRegistrationStep() {
             value = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value).join(', ');
         } else if (field === 'photo') {
             const input = document.getElementById('photo');
-            if (input.files.length) {
+            if (input && input.files.length) {
                 const reader = new FileReader();
                 reader.onload = () => {
-                    registrationData.photo = reader.result; // base64
+                    registrationData.photo = reader.result;
                     console.log('Photo saved as base64:', registrationData.photo.substring(0, 50));
                     registrationStep++;
                     renderRegistrationStep();
@@ -230,54 +240,64 @@ function nextRegistrationStep() {
                 value = null;
             }
         } else {
-            value = document.getElementById(field)?.value;
+            const input = document.getElementById(field);
+            value = input ? input.value : '';
         }
 
         if (field !== 'photo' && !value) {
             showToast(`Please enter ${field}`, 'error');
+            console.log('Validation failed for field:', field);
             return;
         }
 
         if (field === 'age' && (isNaN(value) || value < 18)) {
             showToast('Age must be a number and at least 18', 'error');
+            console.log('Invalid age:', value);
             return;
         }
 
         registrationData[field] = value;
+        console.log('Registration data updated:', registrationData);
         registrationStep++;
         renderRegistrationStep();
-        console.log('Registration step:', registrationStep, 'Data:', registrationData);
     } catch (error) {
-        console.error('Error in nextRegistrationStep:', error);
+        console.error('Next registration step error:', error);
         showToast('Registration error', 'error');
     }
 }
 
 function skipPhoto() {
+    console.log('Skipping photo upload');
     registrationData.photo = null;
     registrationStep++;
     renderRegistrationStep();
 }
 
 function submitRegistration() {
+    console.log('Submitting registration:', registrationData);
     try {
         const action = userProfile ? 'edit_profile' : 'register';
-        Telegram.WebApp?.sendData(JSON.stringify({
-            action,
-            data: registrationData
-        }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({
+                action,
+                data: registrationData
+            }));
+            console.log('Sent to Telegram:', { action, data: registrationData });
+        } else {
+            console.warn('No Telegram WebApp, simulating submission');
+        }
         userProfile = { ...registrationData, coins: userProfile?.coins || 10 };
         localStorage.setItem('userProfile', JSON.stringify(userProfile));
         showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
-        console.log('Submitted registration:', userProfile);
         renderMainMenu();
     } catch (error) {
-        console.error('Error submitting registration:', error);
+        console.error('Submit registration error:', error);
         showToast('Failed to save profile', 'error');
     }
 }
 
 function viewProfile() {
+    console.log('Viewing profile:', userProfile);
     try {
         const profile = userProfile || {
             nickname: currentUser?.username || 'User',
@@ -323,32 +343,35 @@ function viewProfile() {
             console.log('Edit profile button event listener added');
         } else {
             console.error('Edit profile button not found');
+            showToast('UI error: Edit button missing', 'error');
         }
         document.getElementById('back').addEventListener('click', renderMainMenu);
     } catch (error) {
-        console.error('Error rendering profile:', error);
+        console.error('View profile error:', error);
         showToast('Failed to load profile', 'error');
     }
 }
 
 function editProfile() {
+    console.log('Editing profile, current userProfile:', userProfile);
     try {
         if (!userProfile) {
+            console.error('No profile data to edit');
             showToast('No profile data to edit', 'error');
-            console.error('No userProfile for editing');
             return;
         }
         registrationStep = 0;
         registrationData = { ...userProfile };
         renderRegistrationStep();
-        console.log('Editing profile:', registrationData);
+        console.log('Registration data for edit:', registrationData);
     } catch (error) {
-        console.error('Error editing profile:', error);
+        console.error('Edit profile error:', error);
         showToast('Failed to edit profile', 'error');
     }
 }
 
 async function findUsers() {
+    console.log('Finding users...');
     const users = [
         { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
         { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
@@ -387,10 +410,12 @@ async function findUsers() {
     }
 
     window.likeUser = function(userId) {
-        Telegram.WebApp?.sendData(JSON.stringify({
-            action: 'like',
-            target_id: userId
-        }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({
+                action: 'like',
+                target_id: userId
+            }));
+        }
         currentIndex++;
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
         showToast('Liked!', 'success');
@@ -407,6 +432,7 @@ async function findUsers() {
 }
 
 function playQuiz() {
+    console.log('Starting quiz...');
     const question = {
         id: '1',
         text: 'What is the capital of France?',
@@ -422,7 +448,7 @@ function playQuiz() {
                     <button class="button w-full quiz-option" data-answer="${opt}">${opt}</button>
                 `).join('')}
             </div>
-            <  <button id="back" class="button w-full mt-4 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
+            <button id="back" class="button w-full mt-4 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
         </div>
     `;
     document.querySelectorAll('.quiz-option').forEach(button => {
@@ -439,14 +465,17 @@ function playQuiz() {
 }
 
 function submitQuizAnswer(questionId, answer) {
-    Telegram.WebApp?.sendData(JSON.stringify({
-        action: 'quiz_answer',
-        question_id: questionId,
-        answer: answer
-    }));
+    if (Telegram.WebApp) {
+        Telegram.WebApp.sendData(JSON.stringify({
+            action: 'quiz_answer',
+            question_id: questionId,
+            answer: answer
+        }));
+    }
 }
 
 function adminPanel() {
+    console.log('Opening admin panel...');
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-3xl font-extrabold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Admin Panel</h2>
@@ -469,9 +498,10 @@ function adminPanel() {
 }
 
 function viewStats() {
-    Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_stats' }));
+    if (Telegram.WebApp) {
+        Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_stats' }));
+    }
     showToast('Fetching stats...', 'info');
-    // Симуляция (замени на API)
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Statistics</h2>
@@ -488,7 +518,9 @@ function manageCoins() {
     const userId = prompt('Enter user ID:');
     const amount = prompt('Enter coins amount (positive to add, negative to subtract):');
     if (userId && amount) {
-        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_coins', user_id: userId, amount: parseInt(amount) }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_coins', user_id: userId, amount: parseInt(amount) }));
+        }
         showToast(`Coins updated for user ${userId}`, 'success');
     } else {
         showToast('Invalid input', 'error');
@@ -496,7 +528,6 @@ function manageCoins() {
 }
 
 function viewUsers() {
-    // Симуляция (замени на API)
     const users = [
         { id: 1, nickname: 'Alice', coins: 50, photo: '/static/images/avatar.png' },
         { id: 2, nickname: 'Bob', coins: 30, photo: '/static/images/avatar.png' }
@@ -541,12 +572,14 @@ function editUser(userId) {
             showToast('Enter at least one field', 'error');
             return;
         }
-        Telegram.WebApp?.sendData(JSON.stringify({ 
-            action: 'admin_edit_user', 
-            user_id: userId, 
-            nickname: nickname || undefined, 
-            coins: coins ? parseInt(coins) : undefined 
-        }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ 
+                action: 'admin_edit_user', 
+                user_id: userId, 
+                nickname: nickname || undefined, 
+                coins: coins ? parseInt(coins) : undefined 
+            }));
+        }
         showToast(`User ${userId} updated`, 'success');
         viewUsers();
     });
@@ -556,7 +589,9 @@ function editUser(userId) {
 function banUser() {
     const userId = prompt('Enter user ID to ban:');
     if (userId) {
-        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
+        }
         showToast(`User ${userId} banned`, 'success');
     } else {
         showToast('Invalid user ID', 'error');
@@ -566,7 +601,9 @@ function banUser() {
 function sendBroadcast() {
     const text = prompt('Enter broadcast message:');
     if (text) {
-        Telegram.WebApp?.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
+        }
         showToast('Broadcast sent', 'success');
     } else {
         showToast('Enter a message', 'error');
