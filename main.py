@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import asyncpg
+import json
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN, DATABASE_URL, WEB_APP_URL
@@ -42,10 +43,36 @@ async def on_shutdown(dp: Dispatcher):
 async def serve_index(request):
     return web.FileResponse('webapp/index.html')
 
+async def handle_webapp_data(request):
+    try:
+        data = await request.json()
+        logger.info(f"Received WebApp data: {data}")
+        pool = request.app['dp'].storage.data.get("db_pool")
+        action = data.get('action')
+        user_data = data.get('data', {})
+
+        if action in ['register', 'edit_profile']:
+            async with pool.acquire() as conn:
+                await conn.execute('''
+                    INSERT INTO users (telegram_id, nickname, age, country, city, gender, interests, photo, coins)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    ON CONFLICT (telegram_id) DO UPDATE
+                    SET nickname = $2, age = $3, country = $4, city = $5, gender = $6, interests = $7, photo = $8, coins = $9
+                ''', user_data.get('telegram_id', 0), user_data.get('nickname'), user_data.get('age'),
+                    user_data.get('country'), user_data.get('city'), user_data.get('gender'),
+                    user_data.get('interests'), user_data.get('photo'), user_data.get('coins', 10))
+                logger.info(f"User profile updated: {user_data.get('nickname')}")
+        return web.json_response({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error handling WebApp data: {e}")
+        return web.json_response({'status': 'error', 'message': str(e)}, status=500)
+
 app = web.Application()
+app['dp'] = Dispatcher(bot=Bot(token=BOT_TOKEN, parse_mode="HTML"), storage=MemoryStorage())
 app.router.add_static('/static/', path='webapp/static', name='static')
 app.router.add_get('/webapp', serve_index)
-app.router.add_get('/', serve_index)  # Redirect root to Web App
+app.router.add_get('/', serve_index)
+app.router.add_post('/webapp/data', handle_webapp_data)
 
 async def start_web_server():
     runner = web.AppRunner(app)
@@ -59,7 +86,7 @@ def main():
     try:
         bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
         storage = MemoryStorage()
-        dp = Dispatcher(bot=bot, storage=storage)
+        dp = app['dp']
 
         dp.message.middleware(DispatcherMiddleware())
         dp.message.middleware(ThrottlingMiddleware(limit=2.0))
