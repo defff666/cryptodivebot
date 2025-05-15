@@ -2,63 +2,100 @@ from aiogram import Bot
 import asyncpg
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class MatchingService:
     def __init__(self, bot: Bot):
         self.bot = bot
 
-    async def get_potential_matches(self, user_id: int, pool):
-        """Get potential matches for a user."""
-        async with pool.acquire() as conn:
-            user = await conn.fetchrow("SELECT city, gender, interests FROM users WHERE id = $1", user_id)
-            if not user:
-                return []
-            # Simplified filtering
-            matches = await conn.fetch(
-                """
-                SELECT id, nickname, age, city, gender, interests, photo
-                FROM users
-                WHERE id != $1 AND blocked = FALSE
-                AND city ILIKE $2
-                AND ($3 = 'Bi' OR gender = ANY(CASE
-                    WHEN $3 = 'Male' THEN ARRAY['Female', 'Bi']
-                    WHEN $3 = 'Female' THEN ARRAY['Male', 'Bi']
-                    WHEN $3 = 'Lesbian' THEN ARRAY['Female', 'Bi', 'Lesbian']
-                    WHEN $3 = 'Gay' THEN ARRAY['Male', 'Bi', 'Gay']
-                    ELSE ARRAY['Bi']
-                END))
-                """,
-                user_id, user["city"], user["gender"]
-            )
-            return [dict(m) for m in matches]
+    async def get_potential_matches(self, user_id: int, city: str, gender: str, interests: str, pool: asyncpg.Pool):
+        """Get potential matches based on city, gender, and interests."""
+        try:
+            gender_preferences = {
+                'Male': ['Female', 'Bi', 'Lesbian', 'Gay'],
+                'Female': ['Male', 'Bi', 'Gay', 'Lesbian'],
+                'Bi': ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'],
+                'Lesbian': ['Female', 'Bi', 'Lesbian'],
+                'Gay': ['Male', 'Bi', 'Gay']
+            }
+            compatible_genders = gender_preferences.get(gender, ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'])
+            interest_list = interests.split(', ')
+            
+            async with pool.acquire() as conn:
+                users = await conn.fetch(
+                    """
+                    SELECT * FROM users
+                    WHERE id != $1
+                    AND blocked = FALSE
+                    AND city = $2
+                    AND gender = ANY($3)
+                    AND interests && $4
+                    AND NOT ($1::text = ANY(likes))
+                    """,
+                    user_id, city, compatible_genders, interest_list
+                )
+                logger.info(f"Found {len(users)} potential matches for user {user_id}")
+                return [dict(user) for user in users]
+        except Exception as e:
+            logger.error(f"Error fetching matches for user {user_id}: {e}")
+            raise
 
-    async def like_user(self, user_id: int, target_id: int):
-        """Like a user and check for match."""
-        pool = self.bot.get("db_pool")
-        async with pool.acquire() as conn:
-            # Add to likes
-            await conn.execute(
-                "UPDATE users SET likes = array_append(likes, $1::text) WHERE id = $2",
-                str(target_id), user_id
-            )
-            # Check for mutual like
-            target_likes = await conn.fetchval(
-                "SELECT likes FROM users WHERE id = $1", target_id
-            )
-            if str(user_id) in (target_likes or []):
+    async def like_user(self, user_id: int, target_id: int, pool: asyncpg.Pool):
+        """Process a like and check for a match."""
+        try:
+            async with pool.acquire() as conn:
+                # Add like to user's likes
                 await conn.execute(
                     """
-                    UPDATE users SET matches = array_append(matches, $1::text) WHERE id = $2;
-                    UPDATE users SET matches = array_append(matches, $2::text) WHERE id = $1;
+                    UPDATE users
+                    SET likes = array_append(likes, $2::text)
+                    WHERE id = $1
                     """,
-                    str(target_id), user_id
+                    user_id, str(target_id)
                 )
-                try:
-                    await self.bot.send_message(target_id, "It's a match! You can now chat with this user.")
-                except Exception as e:
-                    logger.error(f"Failed to notify {target_id} of match: {e}")
-                return True
-        return False
+                
+                # Check if target liked user
+                target = await conn.fetchrow(
+                    "SELECT likes FROM users WHERE id = $1",
+                    target_id
+                )
+                if target and str(user_id) in target['likes']:
+                    # Mutual like, create match
+                    await conn.execute(
+                        """
+                        UPDATE users
+                        SET matches = array_append(matches, $2::text)
+                        WHERE id = $1
+                        """,
+                        user_id, str(target_id)
+                    )
+                    await conn.execute(
+                        """
+                        UPDATE users
+                        SET matches = array_append(matches, $2::text)
+                        WHERE id = $1
+                        """,
+                        target_id, str(user_id)
+                    )
+                    try:
+                        await self.bot.send_message(
+                            user_id,
+                            f"It's a match with user {target_id}! You can now chat."
+                        )
+                        await self.bot.send_message(
+                            target_id,
+                            f"It's a match with user {user_id}! You can now chat."
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to notify match for {user_id} and {target_id}: {e}")
+                    logger.info(f"Match created between {user_id} and {target_id}")
+                    return True
+                logger.info(f"User {user_id} liked {target_id}, no match yet")
+                return False
+        except Exception as e:
+            logger.error(f"Error processing like for user {user_id} on {target_id}: {e}")
+            raise
