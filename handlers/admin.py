@@ -7,18 +7,17 @@ from services.user_manager import UserManager
 import logging
 import json
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-# Admin states
 class AdminStates(StatesGroup):
     ban_user = State()
     broadcast = State()
+    manage_coins = State()
+    edit_user = State()
 
-# Admin menu
 def get_admin_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -81,6 +80,33 @@ async def admin_web_app_data(message: Message, state: FSMContext):
             await user_manager.broadcast(text)
             await message.answer("Broadcast sent.")
             logger.info(f"Admin {message.from_user.id} sent broadcast")
+
+        elif action == "admin_coins":
+            user_id = data.get("user_id")
+            amount = data.get("amount")
+            if not (user_id and amount is not None):
+                await message.answer("Invalid user ID or amount.")
+                logger.error(f"Invalid coins data by {message.from_user.id}")
+                return
+            await user_manager.update_user(user_id=int(user_id), coins=int(amount))
+            await message.answer(f"Updated coins for user {user_id}.")
+            logger.info(f"Admin {message.from_user.id} updated coins for {user_id}")
+
+        elif action == "admin_edit_user":
+            user_id = data.get("user_id")
+            nickname = data.get("nickname")
+            coins = data.get("coins")
+            if not user_id:
+                await message.answer("Invalid user ID.")
+                logger.error(f"Invalid user ID for edit by {message.from_user.id}")
+                return
+            await user_manager.update_user(
+                user_id=int(user_id),
+                nickname=nickname,
+                coins=int(coins) if coins is not None else None
+            )
+            await message.answer(f"User {user_id} updated.")
+            logger.info(f"Admin {message.from_user.id} edited user {user_id}")
 
     except json.JSONDecodeError:
         await message.answer("Invalid Web App data format.")
