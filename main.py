@@ -7,6 +7,8 @@ from config import BOT_TOKEN, DATABASE_URL, WEB_APP_URL
 from handlers import user, admin
 from middleware.dispatcher import DispatcherMiddleware
 from middleware.throttling import ThrottlingMiddleware
+from aiohttp import web
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,7 +17,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 async def on_startup(dp: Dispatcher):
-    """Initialize database pool and store it in Dispatcher."""
     try:
         pool = await asyncpg.create_pool(
             DATABASE_URL,
@@ -30,7 +31,6 @@ async def on_startup(dp: Dispatcher):
         raise
 
 async def on_shutdown(dp: Dispatcher):
-    """Close database pool."""
     try:
         pool = dp.storage.data.get("db_pool")
         if pool:
@@ -39,23 +39,38 @@ async def on_shutdown(dp: Dispatcher):
     except Exception as e:
         logger.error(f"Failed to close database pool: {e}")
 
+async def serve_index(request):
+    return web.FileResponse('webapp/index.html')
+
+app = web.Application()
+app.router.add_static('/static/', path='webapp/static', name='static')
+app.router.add_get('/webapp', serve_index)
+app.router.add_get('/', serve_index)  # Redirect root to Web App
+
+async def start_web_server():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv('PORT', 8000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"Web server started on port {port}")
+
 def main():
-    """Main function to set up and run the bot."""
     try:
         bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
         storage = MemoryStorage()
         dp = Dispatcher(bot=bot, storage=storage)
 
-        # Register middleware
         dp.message.middleware(DispatcherMiddleware())
         dp.message.middleware(ThrottlingMiddleware(limit=2.0))
 
-        # Register handlers
         dp.include_router(user.router)
         dp.include_router(admin.router)
 
-        # Start bot
-        asyncio.run(dp.start_polling(
+        loop = asyncio.get_event_loop()
+        loop.create_task(start_web_server())
+
+        loop.run_until_complete(dp.start_polling(
             on_startup=on_startup,
             on_shutdown=on_shutdown
         ))
