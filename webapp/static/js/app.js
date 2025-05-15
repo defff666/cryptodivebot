@@ -46,8 +46,23 @@ async function checkUserStatus() {
     console.log('Checking user status...');
     try {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
-        if (currentUser && !userProfile) {
-            console.log('No profile in localStorage, setting default');
+        if (currentUser && Telegram.WebApp) {
+            console.log('Fetching profile via Telegram...');
+            Telegram.WebApp.sendData(JSON.stringify({ action: 'get_profile' }));
+            // Ждём ответа через WebApp (заглушка, требует доработки)
+            userProfile = userProfile || {
+                nickname: currentUser.username || 'User',
+                age: 18,
+                country: 'Unknown',
+                city: 'Unknown',
+                gender: 'Unknown',
+                interests: 'None',
+                photo: '/static/images/avatar.png',
+                coins: 10
+            };
+            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+        } else if (!userProfile) {
+            console.log('No profile, setting default');
             userProfile = {
                 nickname: currentUser.username || 'User',
                 age: 18,
@@ -357,7 +372,7 @@ function editProfile() {
     try {
         if (!userProfile) {
             console.error('No profile data to edit');
-            showToast('No profile data to edit', 'error');
+            showToast('No profile data to edit. Please register first.', 'error');
             return;
         }
         registrationStep = 0;
@@ -374,7 +389,7 @@ async function findUsers() {
     console.log('Finding users...');
     const users = [
         { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
+        { id: 2, nickname: 'Bob', age: 25, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
     ];
     let currentIndex = 0;
 
