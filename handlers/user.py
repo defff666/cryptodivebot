@@ -56,6 +56,19 @@ async def get_profile(message: Message, state: FSMContext):
         await message.answer("No profile found.")
     logger.info(f"User {message.from_user.id} requested profile: {user}")
 
+@router.message(F.command == "reset_profile")
+async def reset_profile(message: Message, state: FSMContext):
+    """Debug command to reset user profile."""
+    user_manager = UserManager(message.bot, state)
+    try:
+        async with user_manager.pool.acquire() as conn:
+            await conn.execute("DELETE FROM users WHERE id = $1", message.from_user.id)
+        await message.answer("Profile reset. Please register again.", reply_markup=get_main_menu())
+        logger.info(f"User {message.from_user.id} reset their profile")
+    except Exception as e:
+        await message.answer("Failed to reset profile.")
+        logger.error(f"Error resetting profile for user {message.from_user.id}: {e}")
+
 @router.message(F.web_app_data)
 async def web_app_data(message: Message, state: FSMContext):
     """Handle data from Web App."""
@@ -64,7 +77,7 @@ async def web_app_data(message: Message, state: FSMContext):
         action = data.get("action")
         if not action:
             await message.answer("Invalid Web App data.")
-            logger.error(f"Invalid Web App data for user {message.from_user.id}")
+            logger.error(f"Invalid Web App data for user {message.from_user.id}: {data}")
             return
 
         user_manager = UserManager(message.bot, state)
@@ -165,7 +178,7 @@ async def web_app_data(message: Message, state: FSMContext):
 
     except json.JSONDecodeError:
         await message.answer("Invalid Web App data format.")
-        logger.error(f"Invalid JSON in Web App data for user {message.from_user.id}")
+        logger.error(f"Invalid JSON in Web App data for user {message.from_user.id}: {data}")
     except Exception as e:
         await message.answer("An error occurred. Please try again.")
         logger.error(f"Web app data processing failed for user {message.from_user.id}: {e}")
