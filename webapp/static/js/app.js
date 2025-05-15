@@ -1,5 +1,6 @@
 const app = document.getElementById('app');
 let currentUser = null;
+let userProfile = null;
 
 // Данные
 const countries = ['USA', 'UK', 'Canada', 'Australia'];
@@ -14,7 +15,7 @@ const genders = ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'];
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast ${type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`;
+    toast.className = `toast ${type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-blue-600'}`;
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
@@ -42,6 +43,8 @@ function initWebApp() {
 }
 
 async function checkUserStatus() {
+    // Симуляция загрузки профиля (замени на API)
+    userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
     renderMainMenu();
 }
 
@@ -49,7 +52,7 @@ function renderLogin() {
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-4xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">CryptoDiveBot</h2>
-            <p class="mb-6 text-gray-300">Dive into the future of crypto connections!</p>
+            <p class="mb-6 text-gray-300">Join the ultimate crypto adventure!</p>
             <button id="startRegistration" class="button w-full">Start Now</button>
         </div>
     `;
@@ -148,7 +151,7 @@ function renderRegistrationStep() {
         <div class="card flip-in">
             <h2 class="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">${steps[registrationStep].title}</h2>
             <div class="progress-bar mb-6">
-                <div class="h-3 rounded-full transition-all duration-300" style="width: ${(registrationStep + 1) / steps.length * 100}%"></div>
+                <div class="h-4 rounded-full transition-all duration-300" style="width: ${(registrationStep + 1) / steps.length * 100}%"></div>
             </div>
             ${steps[registrationStep].input}
             <button id="nextStep" class="button w-full mt-4">Next</button>
@@ -181,6 +184,7 @@ function nextRegistrationStep() {
             const reader = new FileReader();
             reader.onload = () => {
                 registrationData.photo = reader.result; // base64
+                console.log('Photo saved as base64:', registrationData.photo.substring(0, 50));
                 registrationStep++;
                 renderRegistrationStep();
             };
@@ -215,29 +219,32 @@ function skipPhoto() {
 }
 
 function submitRegistration() {
+    const action = userProfile ? 'edit_profile' : 'register';
     Telegram.WebApp.sendData(JSON.stringify({
-        action: 'register',
+        action,
         data: registrationData
     }));
-    showToast('Profile created!');
+    userProfile = { ...registrationData, coins: userProfile?.coins || 10 };
+    localStorage.setItem('userProfile', JSON.stringify(userProfile));
+    showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
     renderMainMenu();
 }
 
 function viewProfile() {
-    const profile = {
-        nickname: registrationData.nickname || 'User',
-        age: registrationData.age || 18,
-        country: registrationData.country || 'Unknown',
-        city: registrationData.city || 'Unknown',
-        gender: registrationData.gender || 'Unknown',
-        interests: registrationData.interests || 'None',
-        photo: registrationData.photo || 'static/images/avatar.png',
+    const profile = userProfile || {
+        nickname: 'User',
+        age: 18,
+        country: 'Unknown',
+        city: 'Unknown',
+        gender: 'Unknown',
+        interests: 'None',
+        photo: 'static/images/avatar.png',
         coins: 10
     };
     app.innerHTML = `
         <div class="card flip-in">
             <div class="relative">
-                <div class="avatar-ring mx-auto w-32 h-32">
+                <div class="avatar-ring mx-auto w-36 h-36">
                     <img src="${profile.photo}" alt="Profile" class="w-full h-full object-cover rounded-full">
                 </div>
                 <div class="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-blue-900/50 to-transparent rounded-t-2xl"></div>
@@ -247,11 +254,20 @@ function viewProfile() {
                 <p class="text-gray-300">${profile.age} • ${profile.city}, ${profile.country}</p>
                 <p class="mt-2"><strong>Gender:</strong> ${profile.gender}</p>
                 <p class="mt-1"><strong>Interests:</strong> ${profile.interests}</p>
-                <p class="mt-1"><strong>Coins:</strong> <span class="text-yellow-400 animate-pulse">💰 ${profile.coins}</span></p>
+                <p class="mt-1"><strong>Coins:</strong> <span id="coinCount" class="text-yellow-400 animate-pulse">💰 ${profile.coins}</span></p>
                 <button id="editProfile" class="button w-full mt-4">Edit Profile</button>
                 <button id="back" class="button w-full mt-2 bg-gray-700/50 hover:bg-gray-800/50">Back</button>
             </div>
         </div>
+        <script>
+            let coins = ${profile.coins};
+            setInterval(() => {
+                coins += 1;
+                document.getElementById('coinCount').textContent = \`💰 \${coins}\`;
+                document.getElementById('coinCount').classList.add('animate-bounce');
+                setTimeout(() => document.getElementById('coinCount').classList.remove('animate-bounce'), 500);
+            }, 10000);
+        </script>
     `;
     document.getElementById('editProfile').addEventListener('click', editProfile);
     document.getElementById('back').addEventListener('click', renderMainMenu);
@@ -259,6 +275,7 @@ function viewProfile() {
 
 function editProfile() {
     registrationStep = 0;
+    registrationData = { ...userProfile };
     renderRegistrationStep();
 }
 
@@ -307,7 +324,8 @@ async function findUsers() {
         }));
         currentIndex++;
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#3b82f6', '#ec4899'] });
-        showToast('It’s a Match!', 'success');
+        showToast('Liked!', 'success');
+        document.getElementById('likeSound')?.play();
         renderUser();
     };
 
@@ -344,6 +362,7 @@ function playQuiz() {
             submitQuizAnswer(question.id, answer);
             button.classList.add(answer === question.correct ? 'bg-green-600' : 'bg-red-600');
             showToast(answer === question.correct ? 'Correct!' : 'Wrong!', answer === question.correct ? 'success' : 'error');
+            document.getElementById('quizSound')?.play();
             setTimeout(renderMainMenu, 1000);
         });
     });
@@ -382,14 +401,14 @@ function adminPanel() {
 
 function viewStats() {
     Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_stats' }));
-    showToast('Fetching stats...');
-    // Симуляция ответа
+    showToast('Fetching stats...', 'info');
+    // Симуляция (замени на API)
     app.innerHTML = `
         <div class="card fade-in">
             <h2 class="text-3xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Statistics</h2>
             <p class="mb-2"><strong>Users:</strong> 123</p>
             <p class="mb-2"><strong>Matches:</strong> 456</p>
-            <p class="mb-4"><strong>Messages:</strong> 789</p>
+            <p class="mb-4"><strong>Active Chats:</strong> 789</p>
             <button id="back" class="button w-full">Back</button>
         </div>
     `;
@@ -401,14 +420,17 @@ function manageCoins() {
     const amount = prompt('Enter coins amount (positive to add, negative to subtract):');
     if (userId && amount) {
         Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_coins', user_id: userId, amount: parseInt(amount) }));
-        showToast(`Coins updated for user ${userId}`);
+        showToast(`Coins updated for user ${userId}`, 'success');
+    } else {
+        showToast('Invalid input', 'error');
     }
 }
 
 function viewUsers() {
+    // Симуляция (замени на API)
     const users = [
-        { id: 1, nickname: 'Alice', coins: 50 },
-        { id: 2, nickname: 'Bob', coins: 30 }
+        { id: 1, nickname: 'Alice', coins: 50, photo: 'static/images/avatar.png' },
+        { id: 2, nickname: 'Bob', coins: 30, photo: 'static/images/avatar.png' }
     ];
     app.innerHTML = `
         <div class="card fade-in">
@@ -416,8 +438,13 @@ function viewUsers() {
             <div class="grid gap-2">
                 ${users.map(u => `
                     <div class="bg-gray-800/50 backdrop-blur-sm p-3 rounded-lg">
-                        <p><strong>${u.nickname}</strong> (ID: ${u.id})</p>
-                        <p>Coins: ${u.coins}</p>
+                        <div class="flex items-center">
+                            <img src="${u.photo}" alt="${u.nickname}" class="w-12 h-12 rounded-full mr-3">
+                            <div>
+                                <p><strong>${u.nickname}</strong> (ID: ${u.id})</p>
+                                <p>Coins: ${u.coins}</p>
+                            </div>
+                        </div>
                         <button class="button bg-blue-600 hover:bg-blue-700 mt-2 w-full" onclick="editUser(${u.id})">Edit</button>
                     </div>
                 `).join('')}
@@ -441,8 +468,17 @@ function editUser(userId) {
     document.getElementById('save').addEventListener('click', () => {
         const nickname = document.getElementById('nickname').value;
         const coins = document.getElementById('coins').value;
-        Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_edit_user', user_id: userId, nickname, coins: parseInt(coins) }));
-        showToast(`User ${userId} updated`);
+        if (!nickname && !coins) {
+            showToast('Enter at least one field', 'error');
+            return;
+        }
+        Telegram.WebApp.sendData(JSON.stringify({ 
+            action: 'admin_edit_user', 
+            user_id: userId, 
+            nickname: nickname || undefined, 
+            coins: coins ? parseInt(coins) : undefined 
+        }));
+        showToast(`User ${userId} updated`, 'success');
         viewUsers();
     });
     document.getElementById('back').addEventListener('click', viewUsers);
@@ -452,7 +488,9 @@ function banUser() {
     const userId = prompt('Enter user ID to ban:');
     if (userId) {
         Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_ban', user_id: userId }));
-        showToast(`User ${userId} banned`);
+        showToast(`User ${userId} banned`, 'success');
+    } else {
+        showToast('Invalid user ID', 'error');
     }
 }
 
@@ -460,7 +498,9 @@ function sendBroadcast() {
     const text = prompt('Enter broadcast message:');
     if (text) {
         Telegram.WebApp.sendData(JSON.stringify({ action: 'admin_broadcast', text }));
-        showToast('Broadcast sent');
+        showToast('Broadcast sent', 'success');
+    } else {
+        showToast('Enter a message', 'error');
     }
 }
 
