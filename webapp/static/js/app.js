@@ -40,6 +40,23 @@ function loadTelegramSDK() {
     });
 }
 
+async function fetchProfile(telegram_id) {
+    try {
+        const response = await fetch(`/profile?telegram_id=${telegram_id}`);
+        const data = await response.json();
+        if (data.status === 'success') {
+            console.log('Profile fetched from server:', data.profile);
+            return data.profile;
+        } else {
+            console.warn('Profile not found on server:', data.message);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+    }
+}
+
 async function initWebApp() {
     console.log('Initializing Web App...');
     try {
@@ -71,16 +88,35 @@ async function initWebApp() {
 async function checkUserStatus() {
     console.log('Checking user status...');
     try {
+        // Try fetching profile from server
+        let serverProfile = null;
+        if (currentUser && currentUser.id) {
+            serverProfile = await fetchProfile(currentUser.id);
+        }
+
+        // Check local storage
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
+
+        // Validate profile
         const isValidProfile = userProfile && 
             userProfile.nickname && userProfile.nickname !== 'unknown' && 
             userProfile.age && userProfile.age >= 18 && 
             userProfile.country && userProfile.city && 
             userProfile.gender && userProfile.interests;
 
-        if (!userProfile || !isValidProfile) {
+        if (serverProfile) {
+            userProfile = serverProfile;
+            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            console.log('Using server profile:', userProfile);
+            renderMainMenu();
+        } else if (isValidProfile) {
+            console.log('Using valid local profile:', userProfile);
+            renderMainMenu();
+        } else {
             console.log('No valid profile, initializing default...');
+            localStorage.removeItem('userProfile');
             userProfile = {
+                telegram_id: currentUser?.id || 0,
                 nickname: currentUser?.username || 'User',
                 age: 18,
                 country: 'USA',
@@ -93,11 +129,7 @@ async function checkUserStatus() {
                 matches: [],
                 blocked: false
             };
-            localStorage.setItem('userProfile', JSON.stringify(userProfile));
             renderLogin();
-        } else {
-            console.log('Valid profile found:', userProfile);
-            renderMainMenu();
         }
     } catch (error) {
         console.error('Check user status error:', error);
@@ -154,7 +186,7 @@ function startRegistration() {
     console.log('Starting registration...');
     try {
         registrationStep = 0;
-        registrationData = {};
+        registrationData.telegram_id = currentUser?.id || 0;
         renderRegistrationStep();
     } catch (error) {
         console.error('Start registration error:', error);
@@ -167,7 +199,7 @@ function renderRegistrationStep() {
     const steps = [
         {
             title: 'Nickname',
-            input: `<input id="nickname" type="text" placeholder="Your nickname" value="${registrationData.nickname || userProfile?.nickname || ''}" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">`
+            input: `<input id="nickname" type="text" placeholder="Your nickname" value="${registrationData.nickname || userProfile?.nickname || currentUser?.username || ''}" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">`
         },
         {
             title: 'Age',
@@ -303,7 +335,7 @@ function nextRegistrationStep() {
         registrationStep++;
         renderRegistrationStep();
     } catch (error) {
-        console.error('Next registration step error:', error);
+        consoles.log('Next registration step error:', error);
         showToast('Registration error', 'error');
     }
 }
@@ -315,11 +347,12 @@ function skipPhoto() {
     renderRegistrationStep();
 }
 
-function submitRegistration() {
+async function submitRegistration() {
     console.log('Submitting registration:', registrationData);
     try {
         const action = userProfile ? 'edit_profile' : 'register';
         userProfile = {
+            telegram_id: currentUser?.id || 0,
             nickname: registrationData.nickname || 'User',
             age: parseInt(registrationData.age) || 18,
             country: registrationData.country || 'USA',
@@ -334,11 +367,12 @@ function submitRegistration() {
         };
 
         if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({
-                action,
-                data: userProfile
-            }));
-            console.log('Sent to Telegram:', { action, data: userProfile });
+            await fetch('/webapp/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, data: userProfile })
+            });
+            console.log('Sent to server:', { action, data: userProfile });
         } else {
             console.warn('No Telegram WebApp, simulating submission');
         }
@@ -357,6 +391,7 @@ function viewProfile() {
     console.log('Viewing profile:', userProfile);
     try {
         const profile = userProfile || {
+            telegram_id: currentUser?.id || 0,
             nickname: currentUser?.username || 'User',
             age: 18,
             country: 'USA',
@@ -414,6 +449,7 @@ function editProfile() {
             return;
         }
         registrationStep = 0;
+        registrationData.telegram_id = userProfile.telegram_id;
         registrationData.nickname = userProfile.nickname;
         registrationData.age = userProfile.age;
         registrationData.country = userProfile.country;
