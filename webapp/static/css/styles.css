@@ -1,27 +1,50 @@
-/* Custom styles for CryptoDiveBot */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 .card {
-    @apply bg-gray-800 rounded-lg shadow-lg p-4 mb-4;
+    @apply bg-gray-800 rounded-2xl shadow-lg p-6 transform transition-all duration-300;
 }
+
+.card:hover {
+    @apply scale-105;
+}
+
 .button {
-    @apply bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition transform hover:scale-105;
+    @apply bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200;
 }
-.like-button {
-    @apply bg-pink-600 text-white rounded-full p-3 hover:bg-pink-700 transition transform hover:scale-110;
+
+.like-button, .next-button {
+    @apply text-2xl p-2 rounded-full hover:bg-gray-700 transition-colors duration-200;
 }
-.next-button {
-    @apply bg-gray-600 text-white rounded-full p-3 hover:bg-gray-700 transition transform hover:scale-110;
+
+.progress-bar {
+    @apply bg-gray-700 rounded-full h-2 overflow-hidden;
 }
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+.slide-in {
+    animation: slideIn 0.5s ease-out;
+}
+
+.quiz-option:hover {
+    @apply bg-blue-700;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
 @keyframes slideIn {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
 }
-.fade-in {
-    animation: fadeIn 0.5s ease-in;
-}
-.slide-in {
-    animation: slideIn 0.5s ease-in;
+
+@keyframes slideOut {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
 }
