@@ -4,7 +4,10 @@ from models.user import User
 import asyncpg
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class UserManager:
@@ -62,6 +65,7 @@ class UserManager:
             except Exception as e:
                 logger.error(f"Error registering user {user_id}: {e}")
                 raise
+        return user
 
     async def get_user(self, user_id: int):
         """Get user by ID."""
@@ -88,13 +92,11 @@ class UserManager:
             logger.error(f"No db_pool in state for user {user_id}")
             raise ValueError("Database pool not initialized")
         
-        # Fetch current user to fill missing fields
         current_user = await self.get_user(user_id)
         if not current_user:
             logger.error(f"Cannot update: User {user_id} not found")
             raise ValueError("User not found")
         
-        # Ensure NOT NULL fields
         kwargs.setdefault('nickname', current_user.nickname)
         kwargs.setdefault('age', current_user.age)
         kwargs.setdefault('country', current_user.country)
@@ -102,7 +104,6 @@ class UserManager:
         kwargs.setdefault('gender', current_user.gender)
         kwargs.setdefault('interests', current_user.interests)
         
-        # Validate
         if kwargs.get('age', 18) < 18:
             raise ValueError("Age must be 18 or older")
         if not all([kwargs.get('nickname'), kwargs.get('country'), kwargs.get('city'), kwargs.get('gender'), kwargs.get('interests')]):
