@@ -3,7 +3,6 @@ import logging
 import asyncio
 from config import DATABASE_URL
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -26,30 +25,7 @@ async def init_db(pool=None):
 
     async with pool.acquire() as conn:
         try:
-            # Drop table if exists
-            await conn.execute("DROP TABLE IF EXISTS users")
-            logger.info("Dropped existing users table")
-            # Create users table
-            await conn.execute("""
-                CREATE TABLE users (
-                    id BIGINT PRIMARY KEY,
-                    nickname TEXT NOT NULL,
-                    age INTEGER NOT NULL,
-                    country TEXT NOT NULL,
-                    city TEXT NOT NULL,
-                    gender TEXT NOT NULL,
-                    interests TEXT NOT NULL,
-                    photo TEXT,
-                    coins INTEGER DEFAULT 0,
-                    likes TEXT[] DEFAULT '{}',
-                    matches TEXT[] DEFAULT '{}',
-                    blocked BOOLEAN DEFAULT FALSE
-                );
-                CREATE INDEX idx_users_id ON users(id);
-                CREATE INDEX idx_users_city ON users(city);
-            """)
-            logger.info("Created users table with indexes")
-            # Verify table creation
+            # Check if users table exists
             result = await conn.fetchrow("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
@@ -57,18 +33,51 @@ async def init_db(pool=None):
                     AND table_name = 'users'
                 )
             """)
-            if result["exists"]:
-                schema = await conn.fetch("""
-                    SELECT column_name, data_type 
+            
+            if not result["exists"]:
+                # Create users table
+                await conn.execute("""
+                    CREATE TABLE users (
+                        id BIGINT PRIMARY KEY,
+                        nickname TEXT NOT NULL,
+                        age INTEGER NOT NULL,
+                        country TEXT NOT NULL,
+                        city TEXT NOT NULL,
+                        gender TEXT NOT NULL,
+                        interests TEXT NOT NULL,
+                        photo TEXT,
+                        coins INTEGER DEFAULT 0,
+                        likes TEXT[] DEFAULT '{}',
+                        matches TEXT[] DEFAULT '{}',
+                        blocked BOOLEAN DEFAULT FALSE
+                    );
+                    CREATE INDEX idx_users_id ON users(id);
+                    CREATE INDEX idx_users_city ON users(city);
+                """)
+                logger.info("Created users table with indexes")
+            else:
+                # Check and add photo column if missing
+                columns = await conn.fetch("""
+                    SELECT column_name 
                     FROM information_schema.columns 
                     WHERE table_name = 'users'
                 """)
-                logger.info(f"Verified users table schema: {schema}")
-            else:
-                logger.error("Failed to verify users table creation")
-                raise RuntimeError("Users table not created")
+                column_names = [c['column_name'] for c in columns]
+                if 'photo' not in column_names:
+                    await conn.execute("ALTER TABLE users ADD COLUMN photo TEXT")
+                    logger.info("Added photo column to users table")
+                
+                logger.info("Users table already exists, verified schema")
+
+            # Verify table
+            schema = await conn.fetch("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'users'
+            """)
+            logger.info(f"Users table schema: {schema}")
         except Exception as e:
-            logger.error(f"Failed to create table: {e}")
+            logger.error(f"Failed to initialize schema: {e}")
             raise
         finally:
             if local_pool:
