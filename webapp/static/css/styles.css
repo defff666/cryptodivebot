@@ -3,27 +3,27 @@
 @tailwind utilities;
 
 .card {
-    @apply bg-gray-800/30 backdrop-blur-md border border-gray-700/50 rounded-2xl shadow-xl p-6 transform transition-all duration-300;
+    @apply bg-gray-800/20 backdrop-blur-lg border border-gray-700/30 rounded-3xl shadow-2xl p-6 transform transition-all duration-300;
 }
 
 .card:hover {
-    @apply shadow-neon-blue;
+    @apply shadow-neon-blue scale-102;
 }
 
 .button {
-    @apply bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105;
+    @apply bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-3 px-6 rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-200 transform hover:scale-105 hover:shadow-neon-pink;
 }
 
 .like-button, .next-button {
-    @apply text-3xl p-3 rounded-full bg-gray-800/50 backdrop-blur-sm hover:bg-gray-700/50 transition-all duration-200;
+    @apply text-4xl p-4 rounded-full bg-gray-800/50 backdrop-blur-sm hover:bg-gray-700/50 transition-all duration-200 transform hover:scale-110;
 }
 
 .progress-bar {
-    @apply bg-gray-900 rounded-full h-3 overflow-hidden;
+    @apply bg-gray-900 rounded-full h-4 overflow-hidden;
 }
 
 .progress-bar > div {
-    @apply bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500;
+    @apply bg-gradient-to-r from-blue-400 to-purple-400 transition-all duration-500;
 }
 
 .fade-in {
@@ -38,6 +38,11 @@
     animation: flipIn 0.8s ease-out;
 }
 
+.parallax {
+    transform: translateZ(-10px) scale(1.1);
+    transform-style: preserve-3d;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -49,8 +54,8 @@
 }
 
 @keyframes flipIn {
-    from { transform: rotateY(90deg); }
-    to { transform: rotateY(0); }
+    from { transform: perspective(400px) rotateY(90deg); }
+    to { transform: perspective(400px) rotateY(0); }
 }
 
 @keyframes gradient {
@@ -61,29 +66,29 @@
 
 .animate-gradient {
     background-size: 200% 200%;
-    animation: gradient 15s ease infinite;
+    animation: gradient 10s ease infinite;
 }
 
 .shadow-neon-blue {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5), 0 0 30px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.7), 0 0 40px rgba(59, 130, 246, 0.4);
 }
 
 .shadow-neon-pink {
-    box-shadow: 0 0 15px rgba(236, 72, 153, 0.5), 0 0 30px rgba(236, 72, 153, 0.3);
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.7), 0 0 40px rgba(236, 72, 153, 0.4);
 }
 
 .quiz-option:hover {
-    @apply bg-gradient-to-r from-blue-600 to-purple-600;
+    @apply bg-gradient-to-r from-blue-500 to-purple-500;
 }
 
 .avatar-ring {
-    @apply border-4 border-blue-500 rounded-full p-1 transition-all duration-300;
+    @apply border-4 border-blue-400 rounded-full p-1 transition-all duration-300;
 }
 
 .avatar-ring:hover {
-    @apply border-purple-500 shadow-neon-pink;
+    @apply border-purple-400 shadow-neon-pink;
 }
 
 .toast {
-    @apply fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800/90 backdrop-blur-md text-white p-4 rounded-xl shadow-lg animate-fadeIn;
+    @apply fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-lg animate-fadeIn;
 }
