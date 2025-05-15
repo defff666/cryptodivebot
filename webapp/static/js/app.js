@@ -12,7 +12,7 @@ const cities = {
 };
 const interestsList = ['Music', 'Sports', 'Travel', 'Gaming', 'Food'];
 const genders = ['Male', 'Female', 'Bi', 'Lesbian', 'Gay'];
-const ADMIN_IDS = [/* Замени на свой Telegram ID, например: 123456789 */];
+const ADMIN_IDS = [/* Добавь свой Telegram ID, например: 123456789 */];
 
 function showToast(message, type = 'info') {
     console.log(`Toast: ${message} (${type})`);
@@ -43,19 +43,17 @@ function loadTelegramSDK() {
 async function initWebApp() {
     console.log('Initializing Web App...');
     try {
-        // Try loading Telegram SDK
         await loadTelegramSDK();
         if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
             currentUser = Telegram.WebApp.initDataUnsafe.user || null;
             console.log('Telegram mode, user:', currentUser);
-            checkUserStatus();
         } else {
             console.warn('No Telegram WebApp, switching to demo mode');
             currentUser = { id: 'demo', username: 'DemoUser' };
-            checkUserStatus();
         }
+        checkUserStatus();
     } catch (error) {
         console.error('Init error:', error);
         app.innerHTML = `
@@ -74,7 +72,14 @@ async function checkUserStatus() {
     console.log('Checking user status...');
     try {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
-        if (!userProfile) {
+        const isValidProfile = userProfile && 
+            userProfile.nickname && userProfile.nickname !== 'unknown' && 
+            userProfile.age && userProfile.age >= 18 && 
+            userProfile.country && userProfile.city && 
+            userProfile.gender && userProfile.interests;
+
+        if (!userProfile || !isValidProfile) {
+            console.log('No valid profile, initializing default...');
             userProfile = {
                 nickname: currentUser?.username || 'User',
                 age: 18,
@@ -89,10 +94,11 @@ async function checkUserStatus() {
                 blocked: false
             };
             localStorage.setItem('userProfile', JSON.stringify(userProfile));
-            console.log('Set default profile:', userProfile);
+            renderLogin();
+        } else {
+            console.log('Valid profile found:', userProfile);
+            renderMainMenu();
         }
-        console.log('Current profile:', userProfile);
-        renderMainMenu();
     } catch (error) {
         console.error('Check user status error:', error);
         showToast('Failed to load profile', 'error');
@@ -161,18 +167,18 @@ function renderRegistrationStep() {
     const steps = [
         {
             title: 'Nickname',
-            input: '<input id="nickname" type="text" placeholder="Your nickname" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">'
+            input: `<input id="nickname" type="text" placeholder="Your nickname" value="${registrationData.nickname || userProfile?.nickname || ''}" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">`
         },
         {
             title: 'Age',
-            input: '<input id="age" type="number" placeholder="Your age (18+)" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">'
+            input: `<input id="age" type="number" placeholder="Your age (18+)" value="${registrationData.age || userProfile?.age || ''}" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">`
         },
         {
             title: 'Country',
             input: `
                 <select id="country" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
                     <option value="">Select country</option>
-                    ${countries.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    ${countries.map(c => `<option value="${c}" ${c === (registrationData.country || userProfile?.country) ? 'selected' : ''}>${c}</option>`).join('')}
                 </select>
             `
         },
@@ -189,7 +195,7 @@ function renderRegistrationStep() {
             input: `
                 <select id="gender" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
                     <option value="">Select gender</option>
-                    ${genders.map(g => `<option value="${g}">${g}</option>`).join('')}
+                    ${genders.map(g => `<option value="${g}" ${g === (registrationData.gender || userProfile?.gender) ? 'selected' : ''}>${g}</option>`).join('')}
                 </select>
             `
         },
@@ -198,7 +204,7 @@ function renderRegistrationStep() {
             input: `
                 <div class="mb-4 grid grid-cols-2 gap-3">
                     ${interestsList.map(i => `
-                        <label class="flex items-center text-sm"><input type="checkbox" value="${i}" class="mr-2 accent-purple-500">${i}</label>
+                        <label class="flex items-center text-sm"><input type="checkbox" value="${i}" class="mr-2 accent-purple-500" ${(registrationData.interests || userProfile?.interests || '').includes(i) ? 'checked' : ''}>${i}</label>
                     `).join('')}
                 </div>
             `
@@ -207,6 +213,7 @@ function renderRegistrationStep() {
             title: 'Photo',
             input: `
                 <input id="photo" type="file" accept="image/*" class="w-full p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg text-white">
+                <p class="mt-2 text-gray-400">Current: ${registrationData.photo || userProfile?.photo ? 'Photo set' : 'No photo'}</p>
                 <button id="skipPhoto" class="button w-full mt-3 bg-gray-700/50 hover:bg-gray-800/50">Skip</button>
             `
         }
@@ -243,10 +250,10 @@ function renderRegistrationStep() {
     }
 
     if (steps[registrationStep].title === 'City') {
-        const country = registrationData.country || '';
+        const country = registrationData.country || userProfile?.country || '';
         const citySelect = document.getElementById('city');
         citySelect.innerHTML = `<option value="">Select city</option>` + 
-            (cities[country] || []).map(c => `<option value="${c}">${c}</option>`).join('');
+            (cities[country] || []).map(c => `<option value="${c}" ${c === (registrationData.city || userProfile?.city) ? 'selected' : ''}>${c}</option>`).join('');
     }
 }
 
@@ -272,7 +279,7 @@ function nextRegistrationStep() {
                 reader.readAsDataURL(input.files[0]);
                 return;
             } else {
-                value = null;
+                value = registrationData.photo || userProfile?.photo || null;
             }
         } else {
             const input = document.getElementById(field);
@@ -303,7 +310,7 @@ function nextRegistrationStep() {
 
 function skipPhoto() {
     console.log('Skipping photo upload');
-    registrationData.photo = null;
+    registrationData.photo = registrationData.photo || userProfile?.photo || null;
     registrationStep++;
     renderRegistrationStep();
 }
@@ -312,30 +319,32 @@ function submitRegistration() {
     console.log('Submitting registration:', registrationData);
     try {
         const action = userProfile ? 'edit_profile' : 'register';
-        registrationData.nickname = registrationData.nickname || userProfile?.nickname || 'User';
-        registrationData.age = registrationData.age || userProfile?.age || 18;
-        registrationData.country = registrationData.country || userProfile?.country || 'USA';
-        registrationData.city = registrationData.city || userProfile?.city || 'New York';
-        registrationData.gender = registrationData.gender || userProfile?.gender || 'Male';
-        registrationData.interests = registrationData.interests || userProfile?.interests || 'Music';
-        
-        if (Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify({
-                action,
-                data: registrationData
-            }));
-            console.log('Sent to Telegram:', { action, data: registrationData });
-        } else {
-            console.warn('No Telegram WebApp, simulating submission');
-        }
-        userProfile = { 
-            ...registrationData, 
+        userProfile = {
+            nickname: registrationData.nickname || 'User',
+            age: parseInt(registrationData.age) || 18,
+            country: registrationData.country || 'USA',
+            city: registrationData.city || 'New York',
+            gender: registrationData.gender || 'Male',
+            interests: registrationData.interests || 'Music',
+            photo: registrationData.photo || '/static/images/avatar.png',
             coins: userProfile?.coins || 10,
             likes: userProfile?.likes || [],
             matches: userProfile?.matches || [],
             blocked: userProfile?.blocked || false
         };
+
+        if (Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify({
+                action,
+                data: userProfile
+            }));
+            console.log('Sent to Telegram:', { action, data: userProfile });
+        } else {
+            console.warn('No Telegram WebApp, simulating submission');
+        }
+
         localStorage.setItem('userProfile', JSON.stringify(userProfile));
+        console.log('Profile saved:', userProfile);
         showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
         renderMainMenu();
     } catch (error) {
@@ -405,12 +414,19 @@ function editProfile() {
             return;
         }
         registrationStep = 0;
-        registrationData = { ...userProfile };
-        renderRegistrationStep();
+        registrationData.nickname = userProfile.nickname;
+        registrationData.age = userProfile.age;
+        registrationData.country = userProfile.country;
+        registrationData.city = userProfile.city;
+        registrationData.gender = userProfile.gender;
+        registrationData.interests = userProfile.interests;
+        registrationData.photo = userProfile.photo;
         console.log('Registration data for edit:', registrationData);
+        renderRegistrationStep();
     } catch (error) {
         console.error('Edit profile error:', error);
         showToast('Failed to edit profile', 'error');
+        renderLogin();
     }
 }
 
