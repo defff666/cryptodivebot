@@ -47,33 +47,41 @@ async function checkUserStatus() {
     try {
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || null;
         if (currentUser && Telegram.WebApp) {
-            console.log('Fetching profile via Telegram...');
-            Telegram.WebApp.sendData(JSON.stringify({ action: 'get_profile' }));
-            // Ждём ответа через WebApp (заглушка, требует доработки)
-            userProfile = userProfile || {
-                nickname: currentUser.username || 'User',
-                age: 18,
-                country: 'Unknown',
-                city: 'Unknown',
-                gender: 'Unknown',
-                interests: 'None',
-                photo: '/static/images/avatar.png',
-                coins: 10
-            };
-            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            console.log('Requesting profile from Telegram...');
+            // Telegram WebApp не возвращает данные, используем localStorage как заглушку
+            if (!userProfile) {
+                userProfile = {
+                    nickname: currentUser.username || 'User',
+                    age: 18,
+                    country: 'USA',
+                    city: 'New York',
+                    gender: 'Male',
+                    interests: 'None',
+                    photo: '/static/images/avatar.png',
+                    coins: 10,
+                    likes: [],
+                    matches: [],
+                    blocked: false
+                };
+                localStorage.setItem('userProfile', JSON.stringify(userProfile));
+                console.log('Set default profile:', userProfile);
+            }
         } else if (!userProfile) {
-            console.log('No profile, setting default');
             userProfile = {
                 nickname: currentUser.username || 'User',
                 age: 18,
-                country: 'Unknown',
-                city: 'Unknown',
-                gender: 'Unknown',
+                country: 'USA',
+                city: 'New York',
+                gender: 'Male',
                 interests: 'None',
                 photo: '/static/images/avatar.png',
-                coins: 10
+                coins: 10,
+                likes: [],
+                matches: [],
+                blocked: false
             };
             localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            console.log('Set default profile:', userProfile);
         }
         console.log('Current profile:', userProfile);
         renderMainMenu();
@@ -292,6 +300,14 @@ function submitRegistration() {
     console.log('Submitting registration:', registrationData);
     try {
         const action = userProfile ? 'edit_profile' : 'register';
+        // Ensure all required fields
+        registrationData.nickname = registrationData.nickname || userProfile?.nickname || 'User';
+        registrationData.age = registrationData.age || userProfile?.age || 18;
+        registrationData.country = registrationData.country || userProfile?.country || 'USA';
+        registrationData.city = registrationData.city || userProfile?.city || 'New York';
+        registrationData.gender = registrationData.gender || userProfile?.gender || 'Male';
+        registrationData.interests = registrationData.interests || userProfile?.interests || 'None';
+        
         if (Telegram.WebApp) {
             Telegram.WebApp.sendData(JSON.stringify({
                 action,
@@ -301,7 +317,13 @@ function submitRegistration() {
         } else {
             console.warn('No Telegram WebApp, simulating submission');
         }
-        userProfile = { ...registrationData, coins: userProfile?.coins || 10 };
+        userProfile = { 
+            ...registrationData, 
+            coins: userProfile?.coins || 10,
+            likes: userProfile?.likes || [],
+            matches: userProfile?.matches || [],
+            blocked: userProfile?.blocked || false
+        };
         localStorage.setItem('userProfile', JSON.stringify(userProfile));
         showToast(action === 'register' ? 'Profile created!' : 'Profile updated!', 'success');
         renderMainMenu();
@@ -317,12 +339,15 @@ function viewProfile() {
         const profile = userProfile || {
             nickname: currentUser?.username || 'User',
             age: 18,
-            country: 'Unknown',
-            city: 'Unknown',
-            gender: 'Unknown',
+            country: 'USA',
+            city: 'New York',
+            gender: 'Male',
             interests: 'None',
             photo: '/static/images/avatar.png',
-            coins: 10
+            coins: 10,
+            likes: [],
+            matches: [],
+            blocked: false
         };
         app.innerHTML = `
             <div class="card flip-in">
@@ -373,6 +398,7 @@ function editProfile() {
         if (!userProfile) {
             console.error('No profile data to edit');
             showToast('No profile data to edit. Please register first.', 'error');
+            renderLogin();
             return;
         }
         registrationStep = 0;
@@ -389,7 +415,7 @@ async function findUsers() {
     console.log('Finding users...');
     const users = [
         { id: 1, nickname: 'Alice', age: 25, city: 'New York', gender: 'Female', interests: 'Music, Travel', photo: '/static/images/avatar.png' },
-        { id: 2, nickname: 'Bob', age: 25, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
+        { id: 2, nickname: 'Bob', age: 30, city: 'New York', gender: 'Male', interests: 'Sports, Gaming', photo: '/static/images/avatar.png' }
     ];
     let currentIndex = 0;
 
