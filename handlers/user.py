@@ -1,4 +1,5 @@
 from aiogram import Router, F
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -20,10 +21,11 @@ class RegistrationStates(StatesGroup):
     interests = State()
     photo = State()
 
-@router.message(commands=["start"])
+@router.message(Command("start"))
 async def start(message: Message):
     try:
         user_id = message.from_user.id
+        logger.info(f"User {user_id} triggered /start")
         user_manager = UserManager()
         user = await user_manager.get_user(user_id)
         if user:
@@ -33,7 +35,7 @@ async def start(message: Message):
                 [InlineKeyboardButton(text="Start Registration", web_app={"url": f"{WEBAPP_URL}/index.html"})]
             ]))
     except Exception as e:
-        logger.error(f"Error in start command: {e}")
+        logger.error(f"Error in start command for user {message.from_user.id}: {e}")
         await message.answer("Something went wrong. Please try again.")
 
 def main_menu():
@@ -61,7 +63,7 @@ async def view_profile(callback: CallbackQuery):
                 [InlineKeyboardButton(text="Start Registration", web_app={"url": f"{WEBAPP_URL}/index.html"})]
             ]))
     except Exception as e:
-        logger.error(f"Error in view_profile: {e}")
+        logger.error(f"Error in view_profile for user {callback.from_user.id}: {e}")
         await callback.message.answer("Error loading profile.")
 
 @router.callback_query(F.data == "find_users")
@@ -85,7 +87,7 @@ async def find_users(callback: CallbackQuery):
         else:
             await callback.message.answer("No more users to show.")
     except Exception as e:
-        logger.error(f"Error in find_users: {e}")
+        logger.error(f"Error in find_users for user {callback.from_user.id}: {e}")
         await callback.message.answer("Error finding users.")
 
 @router.callback_query(F.data.startswith("like_"))
@@ -101,7 +103,7 @@ async def like_user(callback: CallbackQuery):
             ]))
         await find_users(callback)
     except Exception as e:
-        logger.error(f"Error in like_user: {e}")
+        logger.error(f"Error in like_user for user {callback.from_user.id}: {e}")
         await callback.message.answer("Error processing like.")
 
 @router.callback_query(F.data == "play_quiz")
@@ -116,5 +118,5 @@ async def start_quiz(callback: CallbackQuery, state: FSMContext):
         ])
         await callback.message.answer(f"Question 1:\n{question['text']}\n\n1. {question['options'][0]}\n2. {question['options'][1]}\n3. {question['options'][2]}\n4. {question['options'][3]}", reply_markup=keyboard)
     except Exception as e:
-        logger.error(f"Error in start_quiz: {e}")
+        logger.error(f"Error in start_quiz for user {callback.from_user.id}: {e}")
         await callback.message.answer("Error starting quiz.")
