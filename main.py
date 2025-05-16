@@ -8,6 +8,7 @@ from handlers.user import router as user_router
 from handlers.admin import router as admin_router
 from middleware.throttling import ThrottlingMiddleware
 from middleware.dispatcher import DispatcherMiddleware
+from init_db import init_db  # Импортируем init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,6 +22,10 @@ async def set_commands(bot: Bot):
 
 async def main():
     try:
+        # Инициализация базы данных при старте
+        await init_db()
+        logger.info("Database initialization attempted")
+
         bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
         dp = Dispatcher(storage=MemoryStorage())
         dp.message.middleware(DispatcherMiddleware(dp))
