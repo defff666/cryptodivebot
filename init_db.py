@@ -1,31 +1,36 @@
 import asyncio
 import asyncpg
 from config import DATABASE_URL
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def init_db():
     try:
-        pool = await asyncpg.create_pool(DATABASE_URL)
-        async with pool.acquire() as conn:
-            await conn.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    telegram_id BIGINT PRIMARY KEY,
-                    nickname TEXT NOT NULL,
-                    age INTEGER,
-                    country TEXT,
-                    city TEXT,
-                    gender TEXT,
-                    interests TEXT,
-                    photo TEXT,
-                    coins INTEGER DEFAULT 10,
-                    likes JSONB DEFAULT '[]',
-                    matches JSONB DEFAULT '[]',
-                    blocked BOOLEAN DEFAULT FALSE
-                )
-            ''')
-        await pool.close()
-        print("Database initialized successfully")
+        conn = await asyncpg.connect(DATABASE_URL)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id BIGINT PRIMARY KEY,
+                nickname VARCHAR(50) NOT NULL,
+                age INTEGER NOT NULL CHECK (age >= 18),
+                country VARCHAR(100) NOT NULL,
+                city VARCHAR(100) NOT NULL,
+                gender VARCHAR(20) NOT NULL,
+                interests TEXT[] NOT NULL,
+                photo_url TEXT,
+                coins INTEGER DEFAULT 10,
+                blocked BOOLEAN DEFAULT FALSE,
+                likes BIGINT[] DEFAULT '{}',
+                matches BIGINT[] DEFAULT '{}'
+            );
+            CREATE INDEX IF NOT EXISTS idx_users_city ON users (city);
+            CREATE INDEX IF NOT EXISTS idx_users_gender ON users (gender);
+        """)
+        await conn.close()
+        logger.info("Database initialized successfully")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(init_db())
