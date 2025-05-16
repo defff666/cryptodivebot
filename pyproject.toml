@@ -1,11 +1,15 @@
 [tool.poetry]
 name = "cryptodivebot"
 version = "0.1.0"
-description = "Telegram Mini App for dating"
+description = "Telegram Mini App Dating Bot"
 authors = ["Your Name"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-aiogram = "^3.13.1"
-asyncpg = "^0.29.0"
-python-dotenv = "^1.0.0"
+aiogram = "^3.0"
+asyncpg = "^0.28"
+python-dotenv = "^1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
