@@ -23,13 +23,23 @@ async def set_commands(bot: Bot):
     await bot.set_my_commands(commands)
 
 async def handle_webapp(request):
-    return web.FileResponse('webapp/index.html')
+    try:
+        logger.info(f"Serving webapp for request: {request.path}")
+        return web.FileResponse('webapp/index.html')
+    except Exception as e:
+        logger.error(f"Error serving webapp: {e}")
+        raise web.HTTPNotFound()
+
+async def handle_root(request):
+    logger.info("Root route accessed, returning 404")
+    raise web.HTTPNotFound()
 
 async def start_web_server():
     app = web.Application()
     app.router.add_get('/webapp', handle_webapp)
+    app.router.add_get('/', handle_root)  # Обработка корневого маршрута
     app.router.add_static('/webapp/static/', path='webapp/static/', name='static')
-    port = int(os.getenv("PORT", 10000))  # Render предоставляет PORT, по умолчанию 10000
+    port = int(os.getenv("PORT", 10000))  # Render предоставляет PORT
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', port)
