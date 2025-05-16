@@ -1,76 +1,27 @@
-@import 'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css';
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-    @apply bg-gray-900 text-white;
-}
-
-.card {
-    @apply bg-gray-800/70 backdrop-blur-md rounded-2xl shadow-xl p-6 max-w-md mx-auto;
-}
-
-.button {
-    @apply bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400;
-}
-
-.progress-bar {
-    @apply bg-gray-700/50 rounded-full h-4 overflow-hidden;
-}
-
-.progress-bar > div {
-    @apply bg-gradient-to-r from-blue-400 to-purple-400 transition-all duration-300;
-}
-
-.avatar-ring {
-    @apply rounded-full border-4 border-blue-500/50 overflow-hidden relative;
-}
-
-.like-button, .next-button {
-    @apply w-16 h-16 rounded-full text-2xl flex items-center justify-center transition transform hover:scale-110;
-}
-
-.like-button {
-    @apply bg-red-600 hover:bg-red-700;
-}
-
-.next-button {
-    @apply bg-gray-600 hover:bg-gray-700;
-}
-
-.quiz-option {
-    @apply bg-gray-700/50 hover:bg-gray-600/50 transition;
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease-in;
-}
-
-.slide-in {
-    animation: slideIn 0.5s ease-in;
-}
-
-.flip-in {
-    animation: flipIn 0.5s ease-in;
-}
-
+/* Custom styles to complement Tailwind */
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 
 @keyframes slideIn {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes flipIn {
-    from { transform: perspective(400px) rotateY(90deg); }
-    to { transform: perspective(400px) rotateY(0deg); }
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-in;
 }
 
-.toast {
-    @apply fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-lg transition-opacity duration-300;
+.animate-slide-in {
+    animation: slideIn 0.5s ease-in;
+}
+
+button:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}
+
+#match {
+    animation: fadeIn 1s ease-in;
 }
