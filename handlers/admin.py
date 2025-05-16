@@ -1,98 +1,61 @@
 from aiogram import Router, F
-from aiogram.types import Message
-from aiogram.fsm.context import FSMContext
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from config import ADMIN_IDS
 from services.user_manager import UserManager
 import logging
+import asyncio
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
-
 router = Router()
 
 @router.message(commands=["admin"])
-async def admin_panel(message: Message, state: FSMContext):
-    """Open admin panel for authorized users."""
+async def admin_panel(message: Message):
     try:
         if message.from_user.id not in ADMIN_IDS:
             await message.answer("Access denied.")
-            logger.warning(f"Unauthorized admin access attempt by {message.from_user.id}")
             return
-        await message.answer(
-            "Admin Panel:\n"
-            "- /stats: View statistics\n"
-            "- /ban <user_id>: Ban a user\n"
-            "- /broadcast <message>: Send a broadcast"
-        )
-        logger.info(f"Admin panel accessed by {message.from_user.id}")
+        await message.answer("Admin Panel", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Statistics", callback_data="admin_stats")],
+            [InlineKeyboardButton(text="Ban User", callback_data="admin_ban")],
+            [InlineKeyboardButton(text="Broadcast", callback_data="admin_broadcast")]
+        ]))
     except Exception as e:
-        logger.error(f"Error in admin_panel for user {message.from_user.id}: {e}")
-        await message.answer("Failed to open admin panel.")
+        logger.error(f"Error in admin_panel: {e}")
+        await message.answer("Error accessing admin panel.")
 
-@router.message(commands=["stats"])
-async def stats(message: Message, state: FSMContext):
-    """Show admin statistics."""
+@router.callback_query(F.data == "admin_stats")
+async def admin_stats(callback: CallbackQuery):
     try:
-        if message.from_user.id not in ADMIN_IDS:
-            await message.answer("Access denied.")
-            logger.warning(f"Unauthorized stats access attempt by {message.from_user.id}")
+        if callback.from_user.id not in ADMIN_IDS:
+            await callback.message.answer("Access denied.")
             return
-        user_manager = UserManager(message.bot, state)
+        user_manager = UserManager()
         stats = await user_manager.get_stats()
-        await message.answer(
-            f"Statistics:\n"
-            f"Total Users: {stats['total_users']}\n"
-            f"Total Matches: {stats['total_matches']}\n"
-            f"Active Chats: {stats['active_chats']}"
-        )
-        logger.info(f"Stats viewed by admin {message.from_user.id}")
+        await callback.message.answer(f"Users: {stats['users']}\nMatches: {stats['matches']}\nActive Chats: {stats['chats']}")
     except Exception as e:
-        logger.error(f"Error in stats for user {message.from_user.id}: {e}")
-        await message.answer("Failed to fetch statistics.")
+        logger.error(f"Error in admin_stats: {e}")
+        await callback.message.answer("Error fetching stats.")
 
-@router.message(commands=["ban"])
-async def ban_user(message: Message, state: FSMContext):
-    """Ban a user by ID."""
+@router.callback_query(F.data == "admin_ban")
+async def admin_ban(callback: CallbackQuery):
     try:
-        if message.from_user.id not in ADMIN_IDS:
-            await message.answer("Access denied.")
-            logger.warning(f"Unauthorized ban attempt by {message.from_user.id}")
+        if callback.from_user.id not in ADMIN_IDS:
+            await callback.message.answer("Access denied.")
             return
-        parts = message.text.split(maxsplit=1)
-        if len(parts) < 2 or not parts[1].isdigit():
-            await message.answer("Usage: /ban <user_id>")
-            logger.warning(f"Invalid ban command by {message.from_user.id}: {message.text}")
-            return
-        user_id = int(parts[1])
-        user_manager = UserManager(message.bot, state)
-        await user_manager.ban_user(user_id)
-        await message.answer(f"User {user_id} banned.")
-        logger.info(f"User {user_id} banned by admin {message.from_user.id}")
+        await callback.message.answer("Enter user ID to ban:")
+        # Implement ban logic in a separate message handler if needed
     except Exception as e:
-        logger.error(f"Error in ban_user for user {message.from_user.id}: {e}")
-        await message.answer("Failed to ban user.")
+        logger.error(f"Error in admin_ban: {e}")
+        await callback.message.answer("Error processing ban.")
 
-@router.message(commands=["broadcast"])
-async def broadcast(message: Message, state: FSMContext):
-    """Send a broadcast message to all users."""
+@router.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast(callback: CallbackQuery):
     try:
-        if message.from_user.id not in ADMIN_IDS:
-            await message.answer("Access denied.")
-            logger.warning(f"Unauthorized broadcast attempt by {message.from_user.id}")
+        if callback.from_user.id not in ADMIN_IDS:
+            await callback.message.answer("Access denied.")
             return
-        parts = message.text.split(maxsplit=1)
-        if len(parts) < 2:
-            await message.answer("Usage: /broadcast <message>")
-            logger.warning(f"Invalid broadcast command by {message.from_user.id}: {message.text}")
-            return
-        text = parts[1]
-        user_manager = UserManager(message.bot, state)
-        await user_manager.broadcast(text)
-        await message.answer("Broadcast sent.")
-        logger.info(f"Broadcast sent by admin {message.from_user.id}")
+        await callback.message.answer("Enter broadcast message:")
+        # Implement broadcast logic in a separate message handler if needed
     except Exception as e:
-        logger.error(f"Error in broadcast for user {message.from_user.id}: {e}")
-        await message.answer("Failed to send broadcast.")
+        logger.error(f"Error in admin_broadcast: {e}")
+        await callback.message.answer("Error processing broadcast.")
